@@ -204,6 +204,25 @@ REVIEWS_PATH = _find_or_download("googleplaystore_user_reviews.csv")
 # Hangi formatta olduğunu tespit et
 _IS_NEW_FORMAT = Path(APPS_PATH).name == "Google-Playstore.csv"
 
+# ─── DEBUG: Hangi dosyalar mevcut? ────────────────────────────────────────
+import os
+_debug_info = []
+_debug_info.append(f"BASE: {_BASE}")
+_debug_info.append(f"CACHE_DIR: {_CACHE_DIR}")
+for fname in ["Google-Playstore.csv", "googleplaystore_user_reviews.csv", "googleplaystore.csv"]:
+    for d in [_BASE, _CACHE_DIR]:
+        p = d / fname
+        if p.exists():
+            size = p.stat().st_size
+            _debug_info.append(f"✅ {p} ({size:,} bytes)")
+        else:
+            _debug_info.append(f"❌ {p} — YOK")
+
+with st.expander("🔧 Debug Bilgisi", expanded=True):
+    for line in _debug_info:
+        st.code(line)
+# ──────────────────────────────────────────────────────────────────────────
+
 PLOTLY_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(10,26,53,0.6)",
