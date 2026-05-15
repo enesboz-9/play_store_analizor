@@ -173,7 +173,6 @@ def _find_or_download(*filenames):
             dest = _CACHE_DIR / filename
             url  = _REMOTE_URLS[filename]
             if not dest.exists() or _lfs_pointer(dest):
-                st.info(f"⬇️ **{filename}** indiriliyor… (ilk açılışta birkaç dakika sürebilir)")
                 try:
                     headers = {"User-Agent": "Mozilla/5.0"}
                     with requests.get(url, headers=headers, stream=True, timeout=300) as r:
@@ -181,7 +180,6 @@ def _find_or_download(*filenames):
                         with open(dest, "wb") as f:
                             for chunk in r.iter_content(chunk_size=8192):
                                 f.write(chunk)
-                    st.success(f"✅ {filename} indirildi.")
                     st.rerun()
                 except Exception as e:
                     st.error(
@@ -203,25 +201,6 @@ REVIEWS_PATH = _find_or_download("googleplaystore_user_reviews.csv")
 
 # Hangi formatta olduğunu tespit et
 _IS_NEW_FORMAT = Path(APPS_PATH).name == "Google-Playstore.csv"
-
-# ─── DEBUG: Hangi dosyalar mevcut? ────────────────────────────────────────
-import os
-_debug_info = []
-_debug_info.append(f"BASE: {_BASE}")
-_debug_info.append(f"CACHE_DIR: {_CACHE_DIR}")
-for fname in ["Google-Playstore.csv", "googleplaystore_user_reviews.csv", "googleplaystore.csv"]:
-    for d in [_BASE, _CACHE_DIR]:
-        p = d / fname
-        if p.exists():
-            size = p.stat().st_size
-            _debug_info.append(f"✅ {p} ({size:,} bytes)")
-        else:
-            _debug_info.append(f"❌ {p} — YOK")
-
-with st.expander("🔧 Debug Bilgisi", expanded=True):
-    for line in _debug_info:
-        st.code(line)
-# ──────────────────────────────────────────────────────────────────────────
 
 PLOTLY_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
