@@ -127,17 +127,23 @@ hr { border-color: #1e3a5f !important; }
 from pathlib import Path
 _BASE = Path(__file__).parent
 
-def _find(filename):
-    for candidate in [_BASE / filename, _BASE / "data" / filename]:
-        if candidate.exists():
-            return str(candidate)
+def _find(*filenames):
+    """Try multiple filename candidates and return the first found."""
+    for filename in filenames:
+        for candidate in [_BASE / filename, _BASE / "data" / filename]:
+            if candidate.exists():
+                return str(candidate)
     raise FileNotFoundError(
-        f"{filename} bulunamadi.\n"
-        f"CSV dosyalarini app.py ile ayni klasore veya data/ altina koyun."
+        f"Şu dosyalardan biri bulunamadı: {filenames}\n"
+        f"CSV dosyalarını app.py ile aynı klasöre veya data/ altına koyun."
     )
 
-APPS_PATH    = _find("googleplaystore.csv")
+# Yeni veri seti (Google-Playstore.csv) öncelikli; yoksa eski formata düşer
+APPS_PATH    = _find("Google-Playstore.csv", "googleplaystore.csv")
 REVIEWS_PATH = _find("googleplaystore_user_reviews.csv")
+
+# Hangi formatta olduğunu tespit et
+_IS_NEW_FORMAT = Path(APPS_PATH).name == "Google-Playstore.csv"
 
 PLOTLY_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
@@ -161,24 +167,79 @@ def _fmt_layout(fig: go.Figure, **extra) -> go.Figure:
 
 @st.cache_data(show_spinner="Veriler yükleniyor…")
 def load_apps() -> pd.DataFrame:
-    df = pd.read_csv(APPS_PATH, on_bad_lines="skip")
+    # ── Büyük veri seti için dtypes önceden belirt (bellek tasarrufu) ──
+    if _IS_NEW_FORMAT:
+        dtype_hints = {
+            "App Name": "str", "App Id": "str", "Category": "str",
+            "Rating": "float32", "Rating Count": "float32",
+            "Installs": "str", "Minimum Installs": "float32",
+            "Maximum Installs": "float32",
+            "Free": "str", "Price": "float32", "Currency": "str",
+            "Size": "str", "Minimum Android": "str",
+            "Content Rating": "str", "Ad Supported": "str",
+            "In App Purchases": "str", "Editors Choice": "str",
+        }
+        df = pd.read_csv(
+            APPS_PATH,
+            on_bad_lines="skip",
+            dtype=dtype_hints,
+            low_memory=True,
+        )
+        # Kolon adlarını eski formata eşle
+        df = df.rename(columns={
+            "App Name":      "App",
+            "Rating Count":  "Reviews",
+            "Minimum Installs": "Installs_num_raw",
+        })
+        # Free sütunu "True"/"False" string → bool
+        df["Is_Free"] = df["Free"].astype(str).str.strip().str.lower() == "true"
+        df["Price_num"] = pd.to_numeric(df["Price"], errors="coerce").fillna(0)
 
-    # ── Numeric installs ──
-    def clean_installs(v):
-        if pd.isna(v):
-            return np.nan
-        v = str(v).replace(",", "").replace("+", "").strip()
-        try:
-            return int(v)
-        except ValueError:
-            return np.nan
+        # Installs: önce Minimum Installs (sayısal), yoksa Installs string
+        def parse_installs_new(row):
+            v = row.get("Installs_num_raw")
+            if pd.notna(v):
+                try:
+                    return int(float(v))
+                except (ValueError, OverflowError):
+                    pass
+            raw = str(row.get("Installs", "")).replace(",", "").replace("+", "").strip()
+            try:
+                return int(raw)
+            except ValueError:
+                return np.nan
 
-    # ── Size → MB ──
+        df["Installs_num"] = df.apply(parse_installs_new, axis=1)
+
+    else:
+        # ── ESKİ FORMAT (googleplaystore.csv) ──
+        df = pd.read_csv(APPS_PATH, on_bad_lines="skip")
+
+        def clean_installs(v):
+            if pd.isna(v):
+                return np.nan
+            v = str(v).replace(",", "").replace("+", "").strip()
+            try:
+                return int(v)
+            except ValueError:
+                return np.nan
+
+        df["Installs_num"] = df["Installs"].apply(clean_installs)
+        df["Reviews"]      = pd.to_numeric(df["Reviews"], errors="coerce")
+        df["Price_num"]    = (
+            df["Price"]
+            .str.replace(r"[\$,]", "", regex=True)
+            .apply(pd.to_numeric, errors="coerce")
+            .fillna(0)
+        )
+        df["Is_Free"] = df["Type"].str.strip() == "Free"
+
+    # ── Ortak temizlik ──
     def clean_size(v):
         if pd.isna(v):
             return np.nan
         v = str(v).strip()
-        if "Varies" in v:
+        if "Varies" in v or v in ("", "nan"):
             return np.nan
         if v.endswith("M"):
             try:
@@ -190,31 +251,40 @@ def load_apps() -> pd.DataFrame:
                 return float(v[:-1]) / 1024
             except ValueError:
                 return np.nan
-        return np.nan
+        # Yeni formatta bazı değerler bytes cinsinden gelir (örn. "1.5M" → zaten işlendi)
+        try:
+            return float(v) / (1024 * 1024)  # bytes → MB
+        except ValueError:
+            return np.nan
 
-    df["Installs_num"] = df["Installs"].apply(clean_installs)
-    df["Size_MB"]      = df["Size"].apply(clean_size)
-    df["Rating"]       = pd.to_numeric(df["Rating"], errors="coerce")
-    df["Reviews"]      = pd.to_numeric(df["Reviews"], errors="coerce")
-    df["Price_num"]    = (
-        df["Price"]
-        .str.replace(r"[\$,]", "", regex=True)
-        .apply(pd.to_numeric, errors="coerce")
-        .fillna(0)
-    )
+    df["Size_MB"] = df["Size"].apply(clean_size)
+    df["Rating"]  = pd.to_numeric(df["Rating"], errors="coerce").astype("float32")
 
-    # Remove obvious data errors
+    # Hatalı satırları çıkar
     df = df[df["Rating"].between(1, 5, inclusive="both") | df["Rating"].isna()]
     df = df[df["Category"].notna()]
-    df = df[df["Category"] != "1.9"]   # stray row
+    df = df[~df["Category"].isin(["1.9"])]  # eski formattaki hatalı satır
 
-    # Clean category names for display
+    # Kategori adlarını düzenle
     df["Category_Clean"] = (
         df["Category"]
         .str.replace("_", " ", regex=False)
         .str.title()
     )
-    df["Is_Free"] = df["Type"].str.strip() == "Free"
+
+    # Belleği azalt: büyük veri setinde gereksiz kolonları düşür
+    keep_cols = [
+        "App", "Category", "Category_Clean", "Rating", "Reviews",
+        "Installs_num", "Size_MB", "Is_Free", "Price_num",
+        "Content Rating",
+    ]
+    # Opsiyonel kolonlar (varsa tut)
+    for opt in ["Last Updated", "Released", "Editors Choice", "Ad Supported", "In App Purchases"]:
+        if opt in df.columns:
+            keep_cols.append(opt)
+
+    df = df[[c for c in keep_cols if c in df.columns]].copy()
+
     return df
 
 
@@ -228,6 +298,14 @@ def load_reviews() -> pd.DataFrame:
 
 apps_df    = load_apps()
 reviews_df = load_reviews()
+
+# Veri seti bilgi banneri
+if _IS_NEW_FORMAT:
+    st.sidebar.success(
+        f"✅ **Yeni veri seti yüklendi**\n\n"
+        f"📱 {len(apps_df):,} uygulama\n\n"
+        f"🗂️ {apps_df['Category_Clean'].nunique()} kategori"
+    )
 
 # Convenience lookups
 ALL_CATS    = sorted(apps_df["Category_Clean"].dropna().unique().tolist())
@@ -272,12 +350,15 @@ with st.sidebar:
     opp_max_rating = st.slider(
         "Max Puan",
         min_value=3.9, max_value=4.5, value=4.2, step=0.05,
-        help="Sekme 2: Memnuniyet eşiği (veri seti ortalaması 4.19)",
+        help="Sekme 2: Memnuniyet eşiği",
     )
 
     st.markdown("---")
     st.caption("Veri: Kaggle Google Play Store Dataset")
-    st.caption("📅 Analiz Dönemi: 2019")
+    if _IS_NEW_FORMAT:
+        st.caption("📅 Analiz Dönemi: 2021 · ~2.3M uygulama")
+    else:
+        st.caption("📅 Analiz Dönemi: 2019")
 
 
 # ─────────────────────────── FILTER HELPER ─────────────────────────────────
@@ -916,7 +997,7 @@ with tab3:
 st.markdown("---")
 st.markdown(
     "<p style='text-align:center;color:#334155;font-size:.8rem'>"
-    "AppVentures &nbsp;·&nbsp; Kaggle Google Play Store Dataset &nbsp;·&nbsp; "
+    "AppVentures &nbsp;·&nbsp; Kaggle Google Play Store Dataset (2021) &nbsp;·&nbsp; "
     "Built with Streamlit &amp; Plotly"
     "</p>",
     unsafe_allow_html=True,
