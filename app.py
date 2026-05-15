@@ -142,7 +142,7 @@ _REMOTE_URLS = {
     ),
     # Küçük reviews dosyası → GitHub'dan direkt
     "googleplaystore_user_reviews.csv": (
-        "https://raw.githubusercontent.com/enesboz-9/play_store_analizor/main/googleplaystore_user_reviews.csv"
+        "https://huggingface.co/datasets/enesboz9/google-playstore/resolve/main/googleplaystore_user_reviews.csv"
     ),
 }
 
