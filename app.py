@@ -251,7 +251,6 @@ def load_apps() -> pd.DataFrame:
             APPS_PATH,
             on_bad_lines="skip",
             low_memory=False,
-            engine="python",
         )
         # Kolon adlarını eski formata eşle
         df = df.rename(columns={
