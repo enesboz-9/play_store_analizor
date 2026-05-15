@@ -124,8 +124,20 @@ hr { border-color: #1e3a5f !important; }
 )
 
 # ─────────────────────────── DATA LOADING ──────────────────────────────────
-APPS_PATH    = "data/googleplaystore.csv"
-REVIEWS_PATH = "data/googleplaystore_user_reviews.csv"
+from pathlib import Path
+_BASE = Path(__file__).parent
+
+def _find(filename):
+    for candidate in [_BASE / filename, _BASE / "data" / filename]:
+        if candidate.exists():
+            return str(candidate)
+    raise FileNotFoundError(
+        f"{filename} bulunamadi.\n"
+        f"CSV dosyalarini app.py ile ayni klasore veya data/ altina koyun."
+    )
+
+APPS_PATH    = _find("googleplaystore.csv")
+REVIEWS_PATH = _find("googleplaystore_user_reviews.csv")
 
 PLOTLY_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
