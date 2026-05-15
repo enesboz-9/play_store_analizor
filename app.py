@@ -125,6 +125,7 @@ hr { border-color: #1e3a5f !important; }
 
 # ─────────────────────────── DATA LOADING ──────────────────────────────────
 import urllib.request
+import requests
 from pathlib import Path
 _BASE = Path(__file__).parent
 
@@ -174,15 +175,19 @@ def _find_or_download(*filenames):
             if not dest.exists() or _lfs_pointer(dest):
                 st.info(f"⬇️ **{filename}** indiriliyor… (ilk açılışta birkaç dakika sürebilir)")
                 try:
-                    urllib.request.urlretrieve(url, dest)
+                    headers = {"User-Agent": "Mozilla/5.0"}
+                    with requests.get(url, headers=headers, stream=True, timeout=300) as r:
+                        r.raise_for_status()
+                        with open(dest, "wb") as f:
+                            for chunk in r.iter_content(chunk_size=8192):
+                                f.write(chunk)
                     st.success(f"✅ {filename} indirildi.")
                     return str(dest)
                 except Exception as e:
                     st.error(
                         f"**{filename} indirilemedi.**\n\n"
                         f"Hata: `{e}`\n\n"
-                        f"Lütfen dosyayı manuel olarak indirip projeye ekleyin:\n"
-                        f"`{url}`"
+                        f"URL: `{url}`"
                     )
                     raise
             else:
