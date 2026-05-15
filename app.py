@@ -247,21 +247,11 @@ def _fmt_layout(fig: go.Figure, **extra) -> go.Figure:
 def load_apps() -> pd.DataFrame:
     # ── Büyük veri seti için dtypes önceden belirt (bellek tasarrufu) ──
     if _IS_NEW_FORMAT:
-        dtype_hints = {
-            "App Name": "str", "App Id": "str", "Category": "str",
-            "Rating": "float32", "Rating Count": "float32",
-            "Installs": "str", "Minimum Installs": "float32",
-            "Maximum Installs": "float32",
-            "Free": "str", "Price": "float32", "Currency": "str",
-            "Size": "str", "Minimum Android": "str",
-            "Content Rating": "str", "Ad Supported": "str",
-            "In App Purchases": "str", "Editors Choice": "str",
-        }
         df = pd.read_csv(
             APPS_PATH,
             on_bad_lines="skip",
-            dtype=dtype_hints,
-            low_memory=True,
+            low_memory=False,
+            engine="python",
         )
         # Kolon adlarını eski formata eşle
         df = df.rename(columns={
@@ -274,20 +264,16 @@ def load_apps() -> pd.DataFrame:
         df["Price_num"] = pd.to_numeric(df["Price"], errors="coerce").fillna(0)
 
         # Installs: önce Minimum Installs (sayısal), yoksa Installs string
-        def parse_installs_new(row):
-            v = row.get("Installs_num_raw")
-            if pd.notna(v):
-                try:
-                    return int(float(v))
-                except (ValueError, OverflowError):
-                    pass
-            raw = str(row.get("Installs", "")).replace(",", "").replace("+", "").strip()
-            try:
-                return int(raw)
-            except ValueError:
-                return np.nan
-
-        df["Installs_num"] = df.apply(parse_installs_new, axis=1)
+        # Minimum Installs sütunu öncelikli (sayısal), yoksa Installs string parse
+        min_inst = pd.to_numeric(df.get("Installs_num_raw", pd.Series(dtype="float")), errors="coerce")
+        str_inst = (
+            df["Installs"].astype(str)
+            .str.replace(",", "", regex=False)
+            .str.replace("+", "", regex=False)
+            .str.strip()
+        )
+        str_inst_num = pd.to_numeric(str_inst, errors="coerce")
+        df["Installs_num"] = min_inst.combine_first(str_inst_num)
 
     else:
         # ── ESKİ FORMAT (googleplaystore.csv) ──
