@@ -124,23 +124,78 @@ hr { border-color: #1e3a5f !important; }
 )
 
 # ─────────────────────────── DATA LOADING ──────────────────────────────────
+import urllib.request
 from pathlib import Path
 _BASE = Path(__file__).parent
 
-def _find(*filenames):
-    """Try multiple filename candidates and return the first found."""
+# Streamlit Cloud'da /tmp klasörü yazılabilir; lokal çalışmada proje klasörü kullanılır
+_CACHE_DIR = Path("/tmp") if Path("/tmp").exists() and not Path("/tmp").stat().st_size == 0 else _BASE
+_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+# Kaggle'dan doğrudan indirilemez (auth gerekir).
+# Hugging Face Hub'da barındırılan açık kopyaları kullanıyoruz.
+_REMOTE_URLS = {
+    # Büyük CSV → Hugging Face'e yükledikten sonra bu URL'yi güncelleyin
+    # Örnek: "https://huggingface.co/datasets/KULLANICI_ADI/google-playstore/resolve/main/Google-Playstore.csv"
+    "Google-Playstore.csv": (
+        "https://huggingface.co/datasets/enesboz9/google-playstore/resolve/main/Google-Playstore.csv"
+    ),
+    # Küçük reviews dosyası → GitHub'dan direkt
+    "googleplaystore_user_reviews.csv": (
+        "https://raw.githubusercontent.com/enesboz-9/play_store_analizor/main/googleplaystore_user_reviews.csv"
+    ),
+}
+
+def _lfs_pointer(path: Path) -> bool:
+    """Git LFS pointer dosyası mı kontrol et (gerçek CSV değil)."""
+    try:
+        with open(path, "rb") as f:
+            header = f.read(50)
+        return header.startswith(b"version https://git-lfs")
+    except Exception:
+        return False
+
+def _find_or_download(*filenames):
+    """
+    Önce lokal klasörlerde ara. LFS pointer ise veya yoksa /tmp'ye indir.
+    """
+    search_dirs = [_BASE, _BASE / "data", _CACHE_DIR]
+
     for filename in filenames:
-        for candidate in [_BASE / filename, _BASE / "data" / filename]:
-            if candidate.exists():
+        for d in search_dirs:
+            candidate = d / filename
+            if candidate.exists() and not _lfs_pointer(candidate):
                 return str(candidate)
+
+    # Lokal yoksa veya LFS pointer ise: indir
+    for filename in filenames:
+        if filename in _REMOTE_URLS:
+            dest = _CACHE_DIR / filename
+            url  = _REMOTE_URLS[filename]
+            if not dest.exists() or _lfs_pointer(dest):
+                st.info(f"⬇️ **{filename}** indiriliyor… (ilk açılışta birkaç dakika sürebilir)")
+                try:
+                    urllib.request.urlretrieve(url, dest)
+                    st.success(f"✅ {filename} indirildi.")
+                    return str(dest)
+                except Exception as e:
+                    st.error(
+                        f"**{filename} indirilemedi.**\n\n"
+                        f"Hata: `{e}`\n\n"
+                        f"Lütfen dosyayı manuel olarak indirip projeye ekleyin:\n"
+                        f"`{url}`"
+                    )
+                    raise
+            else:
+                return str(dest)
+
     raise FileNotFoundError(
-        f"Şu dosyalardan biri bulunamadı: {filenames}\n"
-        f"CSV dosyalarını app.py ile aynı klasöre veya data/ altına koyun."
+        f"Şu dosyalardan biri bulunamadı ve indirilemedi: {filenames}"
     )
 
 # Yeni veri seti (Google-Playstore.csv) öncelikli; yoksa eski formata düşer
-APPS_PATH    = _find("Google-Playstore.csv", "googleplaystore.csv")
-REVIEWS_PATH = _find("googleplaystore_user_reviews.csv")
+APPS_PATH    = _find_or_download("Google-Playstore.csv", "googleplaystore.csv")
+REVIEWS_PATH = _find_or_download("googleplaystore_user_reviews.csv")
 
 # Hangi formatta olduğunu tespit et
 _IS_NEW_FORMAT = Path(APPS_PATH).name == "Google-Playstore.csv"
