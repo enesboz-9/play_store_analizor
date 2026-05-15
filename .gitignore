@@ -3,6 +3,6 @@ __pycache__/
 .env
 venv/
 
-# Büyük veri setleri — Hugging Face'den otomatik indirilir
-*.csv
+# Sadece büyük veri seti ignore edilir — reviews GitHub'da kalır
+Google-Playstore.csv
 *.parquet

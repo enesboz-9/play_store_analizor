@@ -135,14 +135,13 @@ _CACHE_DIR.mkdir(parents=True, exist_ok=True)
 # Kaggle'dan doğrudan indirilemez (auth gerekir).
 # Hugging Face Hub'da barındırılan açık kopyaları kullanıyoruz.
 _REMOTE_URLS = {
-    # Büyük CSV → Hugging Face'e yükledikten sonra bu URL'yi güncelleyin
-    # Örnek: "https://huggingface.co/datasets/KULLANICI_ADI/google-playstore/resolve/main/Google-Playstore.csv"
+    # Büyük CSV → Hugging Face (?download=true endpoint ile xet formatını atla)
     "Google-Playstore.csv": (
-        "https://huggingface.co/datasets/enesboz9/google-playstore/resolve/main/Google-Playstore.csv"
+        "https://huggingface.co/datasets/enesboz9/google-playstore/resolve/main/Google-Playstore.csv?download=true"
     ),
-    # Küçük reviews dosyası → GitHub'dan direkt
+    # Küçük reviews dosyası → GitHub raw (7MB, GitHub limiti dahilinde)
     "googleplaystore_user_reviews.csv": (
-        "https://huggingface.co/datasets/enesboz9/google-playstore/resolve/main/googleplaystore_user_reviews.csv"
+        "https://raw.githubusercontent.com/enesboz-9/play_store_analizor/main/googleplaystore_user_reviews.csv"
     ),
 }
 
