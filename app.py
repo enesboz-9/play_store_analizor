@@ -182,7 +182,7 @@ def _find_or_download(*filenames):
                             for chunk in r.iter_content(chunk_size=8192):
                                 f.write(chunk)
                     st.success(f"✅ {filename} indirildi.")
-                    return str(dest)
+                    st.rerun()
                 except Exception as e:
                     st.error(
                         f"**{filename} indirilemedi.**\n\n"
