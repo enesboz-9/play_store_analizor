@@ -1119,7 +1119,7 @@ with tab5:
                 help="Sadece negatif yorumu olan uygulamalar listeleniyor · Only apps with negative reviews are listed",
             )
         with col_sel2:
-            top_n_words = st.slider("Kelime Sayısı *(Word Count)*, 10, 50, 25")
+            top_n_words = st.slider("Kelime Sayısı *(Word Count)*", 10, 50, 25)
 
         # Yorumları filtrele
         mask_app = reviews_df["App"] == selected_app
