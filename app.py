@@ -213,6 +213,57 @@ APPS_PATH    = _find_or_download("Google-Playstore.csv", "googleplaystore.csv")
 REVIEWS_PATH = _find_or_download("googleplaystore_user_reviews.csv")
 _IS_NEW_FORMAT = Path(APPS_PATH).name == "Google-Playstore.csv"
 
+# ─────────────────────────── CACHED AGGREGATIONS ───────────────────────────
+@st.cache_data(show_spinner=False)
+def compute_cat_agg(df_hash, df: pd.DataFrame) -> pd.DataFrame:
+    """Kategori bazlı aggregation — filtre değişince yeniden hesaplanır."""
+    cat_agg = (
+        df.groupby("Category_Clean", as_index=False)
+        .agg(
+            app_count      =("App",         "count"),
+            avg_rating     =("Rating",       "mean"),
+            median_rating  =("Rating",       "median"),
+            total_installs =("Installs_num", "sum"),
+            median_installs=("Installs_num", "median"),
+            free_pct       =("Is_Free",      "mean"),
+            total_reviews  =("Reviews",      "sum"),
+        )
+        .sort_values("total_installs", ascending=False)
+    )
+    cat_agg["avg_rating"]        = cat_agg["avg_rating"].round(2)
+    cat_agg["total_installs_M"]  = (cat_agg["total_installs"] / 1e6).round(1)
+    cat_agg["median_installs_k"] = (cat_agg["median_installs"] / 1e3).round(1)
+    cat_agg["free_pct_label"]    = (cat_agg["free_pct"]*100).round(0).astype(int).astype(str) + "%"
+    cat_agg["competition_score"] = (cat_agg["app_count"] / cat_agg["app_count"].max() * 100).round(0)
+    return cat_agg
+
+@st.cache_data(show_spinner=False)
+def compute_heat(df_hash, df: pd.DataFrame, top_cats: list) -> pd.DataFrame:
+    """Isı haritası pivot tablosu."""
+    rating_bins = ["1-2","2-3","3-4","4-4.5","4.5-5"]
+    def rate_bin(r):
+        if pd.isna(r): return None
+        if r < 2: return "1-2"
+        if r < 3: return "2-3"
+        if r < 4: return "3-4"
+        if r < 4.5: return "4-4.5"
+        return "4.5-5"
+    heat_df = df[df["Category_Clean"].isin(top_cats)].copy()
+    heat_df["Rating_Bin"] = heat_df["Rating"].apply(rate_bin)
+    heat_df = heat_df.dropna(subset=["Rating_Bin"])
+    return (
+        heat_df.groupby(["Category_Clean","Rating_Bin"])
+        .size().reset_index(name="count")
+        .pivot(index="Category_Clean", columns="Rating_Bin", values="count")
+        .reindex(columns=rating_bins).fillna(0)
+    )
+
+def df_hash(df: pd.DataFrame) -> int:
+    """DataFrame için hızlı hash (cache key olarak kullanılır)."""
+    return hash((len(df), tuple(df.columns.tolist()),
+                 int(df["Rating"].sum()) if "Rating" in df.columns else 0))
+
+
 PLOTLY_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(7,18,40,0.7)",
@@ -410,6 +461,10 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
 
 filtered_df = apply_filters(apps_df)
 
+# Cached aggregation (filtre değişince invalidate olur)
+_fhash = df_hash(filtered_df)
+cat_agg = compute_cat_agg(_fhash, filtered_df)
+
 # ─────────────────────────── HEADER ────────────────────────────────────────
 st.markdown(f"""
 <div class="kpi-header">
@@ -446,26 +501,6 @@ with tab1:
     if filtered_df.empty:
         st.warning("Seçilen filtrelere uygun veri bulunamadı.")
         st.stop()
-
-    cat_agg = (
-        filtered_df
-        .groupby("Category_Clean", as_index=False)
-        .agg(
-            app_count      =("App",          "count"),
-            avg_rating     =("Rating",        "mean"),
-            median_rating  =("Rating",        "median"),
-            total_installs =("Installs_num",  "sum"),
-            median_installs=("Installs_num",  "median"),
-            free_pct       =("Is_Free",       "mean"),
-            total_reviews  =("Reviews",       "sum"),
-        )
-        .sort_values("total_installs", ascending=False)
-    )
-    cat_agg["avg_rating"]       = cat_agg["avg_rating"].round(2)
-    cat_agg["total_installs_M"] = (cat_agg["total_installs"] / 1e6).round(1)
-    cat_agg["median_installs_k"]= (cat_agg["median_installs"] / 1e3).round(1)
-    cat_agg["free_pct_label"]   = (cat_agg["free_pct"]*100).round(0).astype(int).astype(str) + "%"
-    cat_agg["competition_score"]= (cat_agg["app_count"] / cat_agg["app_count"].max() * 100).round(0)
 
     st.markdown("### 🏭 Pazar Haritası")
     st.caption("Kategorilere göre rekabet yoğunluğu, talep ve memnuniyet dağılımı")
@@ -537,7 +572,7 @@ with tab1:
 
     with col_d:
         fig_rating_box = px.box(
-            filtered_df[filtered_df["Rating"].notna()].sample(min(50000,len(filtered_df))),
+            filtered_df[filtered_df["Rating"].notna()].sample(min(10000,len(filtered_df)), random_state=42),
             x="Category_Clean", y="Rating",
             color="Is_Free",
             color_discrete_map={True:"#38bdf8", False:"#f59e0b"},
@@ -552,27 +587,8 @@ with tab1:
     st.markdown("### 🔥 Pazar Isı Haritası")
     st.caption("Kategorilerdeki uygulama yoğunluğu ve puan dağılımı")
 
-    rating_bins = ["1-2","2-3","3-4","4-4.5","4.5-5"]
-    def rate_bin(r):
-        if pd.isna(r): return None
-        if r < 2: return "1-2"
-        if r < 3: return "2-3"
-        if r < 4: return "3-4"
-        if r < 4.5: return "4-4.5"
-        return "4.5-5"
-
-    heat_df = filtered_df.copy()
-    heat_df["Rating_Bin"] = heat_df["Rating"].apply(rate_bin)
-    heat_df = heat_df.dropna(subset=["Rating_Bin"])
-
     top_cats_heat = cat_agg.nlargest(20,"app_count")["Category_Clean"].tolist()
-    heat_pivot = (
-        heat_df[heat_df["Category_Clean"].isin(top_cats_heat)]
-        .groupby(["Category_Clean","Rating_Bin"])
-        .size().reset_index(name="count")
-        .pivot(index="Category_Clean", columns="Rating_Bin", values="count")
-        .reindex(columns=rating_bins).fillna(0)
-    )
+    heat_pivot = compute_heat(_fhash, filtered_df, top_cats_heat)
 
     fig_heat = go.Figure(go.Heatmap(
         z=heat_pivot.values,
@@ -940,7 +956,7 @@ with tab4:
     with col_p1:
         # Ücretsiz vs Ücretli puan violin
         fig_violin = px.violin(
-            filtered_df[filtered_df["Rating"].notna()].sample(min(20000,len(filtered_df))),
+            filtered_df[filtered_df["Rating"].notna()].sample(min(5000,len(filtered_df)), random_state=42),
             x="Is_Free", y="Rating",
             color="Is_Free",
             color_discrete_map={True:"#38bdf8",False:"#f59e0b"},
@@ -1010,7 +1026,7 @@ with tab4:
 
             with col_pr2:
                 fig_price_rating = px.scatter(
-                    price_valid.sample(min(3000,len(price_valid))),
+                    price_valid.sample(min(2000,len(price_valid)), random_state=42),
                     x="Price_num", y="Rating",
                     size="Installs_num" if price_valid["Installs_num"].notna().any() else None,
                     color="Category_Clean",
@@ -1052,7 +1068,7 @@ with tab5:
     st.caption("Negatif yorumları analiz ederek teknik zafiyetleri ve kullanıcı şikayetlerini keşfedin")
 
     reviewed_apps = sorted(reviews_df[reviews_df["Sentiment"]=="Negative"]["App"].unique().tolist())
-    filtered_app_names = filtered_df["App"].unique().tolist()
+    filtered_app_names = set(filtered_df["App"].unique().tolist())
     reviewed_and_filtered = [a for a in reviewed_apps if a in filtered_app_names]
     app_pool = reviewed_and_filtered if reviewed_and_filtered else reviewed_apps
 
