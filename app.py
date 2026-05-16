@@ -181,36 +181,65 @@ def _lfs_pointer(path: Path) -> bool:
     except Exception:
         return False
 
-def _find_or_download(*filenames):
+def _local_path(*filenames):
+    """Disk'te zaten mevcut olan dosyayı bul, yoksa None döndür."""
     search_dirs = [_BASE, _BASE / "data", _CACHE_DIR]
     for filename in filenames:
         for d in search_dirs:
             candidate = d / filename
             if candidate.exists() and not _lfs_pointer(candidate):
                 return str(candidate)
+    return None
+
+@st.cache_data(show_spinner=False)
+def _download_file(filename: str) -> str:
+    """Dosyayı indir ve yolunu döndür — cache sayesinde sadece bir kez çalışır."""
+    dest = _CACHE_DIR / filename
+    if dest.exists() and not _lfs_pointer(dest):
+        return str(dest)
+    url = _REMOTE_URLS[filename]
+    headers = {"User-Agent": "Mozilla/5.0"}
+    with requests.get(url, headers=headers, stream=True, timeout=600) as r:
+        r.raise_for_status()
+        total = int(r.headers.get("content-length", 0))
+        downloaded = 0
+        with open(dest, "wb") as f:
+            for chunk in r.iter_content(chunk_size=65536):
+                f.write(chunk)
+                downloaded += len(chunk)
+    return str(dest)
+
+def _find_or_download(*filenames):
+    # Önce lokal bak
+    local = _local_path(*filenames)
+    if local:
+        return local
+    # Yoksa indir (cache korumalı)
     for filename in filenames:
         if filename in _REMOTE_URLS:
-            dest = _CACHE_DIR / filename
-            url  = _REMOTE_URLS[filename]
-            if not dest.exists() or _lfs_pointer(dest):
-                try:
-                    headers = {"User-Agent": "Mozilla/5.0"}
-                    with requests.get(url, headers=headers, stream=True, timeout=300) as r:
-                        r.raise_for_status()
-                        with open(dest, "wb") as f:
-                            for chunk in r.iter_content(chunk_size=8192):
-                                f.write(chunk)
-                    # NOT: st.rerun() burada sonsuz döngüye neden oluyordu — kaldırıldı
-                    return str(dest)   # indirme başarılı, yolu döndür
-                except Exception as e:
-                    st.error(f"**{filename} indirilemedi.**\n\nHata: `{e}`\n\nURL: `{url}`")
-                    raise
-            else:
-                return str(dest)
-    raise FileNotFoundError(f"Şu dosyalardan biri bulunamadı ve indirilemedi: {filenames}")
+            try:
+                return _download_file(filename)
+            except Exception as e:
+                st.error(f"**{filename} indirilemedi.**\n\nHata: `{e}`")
+                raise
+    raise FileNotFoundError(f"Dosya bulunamadı: {filenames}")
 
-APPS_PATH    = _find_or_download("Google-Playstore.csv", "googleplaystore.csv")
-REVIEWS_PATH = _find_or_download("googleplaystore_user_reviews.csv")
+# ── İndirme durumunu kullanıcıya göster ────────────────────────────────────
+_apps_local   = _local_path("Google-Playstore.csv", "googleplaystore.csv")
+_reviews_local = _local_path("googleplaystore_user_reviews.csv")
+
+if not _apps_local:
+    with st.spinner("📥 Ana veri seti indiriliyor… Bu işlem ilk açılışta ~1-2 dk sürebilir. / Downloading main dataset… This may take ~1-2 min on first load."):
+        APPS_PATH = _find_or_download("Google-Playstore.csv", "googleplaystore.csv")
+else:
+    APPS_PATH = _apps_local
+
+if not _reviews_local:
+    with st.spinner("📥 Yorum verisi indiriliyor… / Downloading review data…"):
+        REVIEWS_PATH = _find_or_download("googleplaystore_user_reviews.csv")
+else:
+    REVIEWS_PATH = _reviews_local
+
 _IS_NEW_FORMAT = Path(APPS_PATH).name == "Google-Playstore.csv"
 
 # ─────────────────────────── CACHED AGGREGATIONS ───────────────────────────
@@ -283,7 +312,7 @@ def _fmt_layout(fig: go.Figure, **extra) -> go.Figure:
     return fig
 
 
-@st.cache_data(show_spinner="Veriler yükleniyor… / Loading data…")
+@st.cache_data(show_spinner="⚙️ Veriler işleniyor… / Processing data…")
 def load_apps() -> pd.DataFrame:
     if _IS_NEW_FORMAT:
         df = pd.read_csv(APPS_PATH, on_bad_lines="skip", low_memory=False)
@@ -337,7 +366,7 @@ def load_apps() -> pd.DataFrame:
     return df
 
 
-@st.cache_data(show_spinner="Yorumlar yükleniyor… / Loading reviews…")
+@st.cache_data(show_spinner="⚙️ Yorumlar işleniyor… / Processing reviews…")
 def load_reviews() -> pd.DataFrame:
     df = pd.read_csv(REVIEWS_PATH, on_bad_lines="skip")
     df["Translated_Review"] = df["Translated_Review"].fillna("")
