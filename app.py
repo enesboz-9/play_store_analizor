@@ -500,7 +500,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     if filtered_df.empty:
         st.warning("Seçilen filtrelere uygun veri bulunamadı.")
-        st.stop()
+        st.markdown("Lütfen sol panelden filtreleri genişletin.")
 
     st.markdown("### 🏭 Pazar Haritası")
     st.caption("Kategorilere göre rekabet yoğunluğu, talep ve memnuniyet dağılımı")
@@ -625,7 +625,7 @@ with tab1:
 with tab2:
     if filtered_df.empty:
         st.warning("Seçilen filtrelere uygun veri bulunamadı.")
-        st.stop()
+        st.markdown("Lütfen sol panelden filtreleri genişletin.")
 
     opp_threshold_inst = opp_min_installs * 1_000_000
 
@@ -823,7 +823,7 @@ with tab2:
 with tab3:
     if filtered_df.empty:
         st.warning("Seçilen filtrelere uygun veri bulunamadı.")
-        st.stop()
+        st.markdown("Lütfen sol panelden filtreleri genişletin.")
 
     st.markdown("### 🏆 Kategori Bazlı Rekabet Analizi")
     st.caption("Seçilen kategorilerde rekabeti derinlemesine inceleyin")
@@ -935,7 +935,7 @@ with tab3:
 with tab4:
     if filtered_df.empty:
         st.warning("Seçilen filtrelere uygun veri bulunamadı.")
-        st.stop()
+        st.markdown("Lütfen sol panelden filtreleri genişletin.")
 
     st.markdown("### 💰 Gelir Modeli & Fiyatlandırma Analizi")
 
@@ -1067,186 +1067,217 @@ with tab5:
     st.markdown("### 💬 Rakip Uygulama Zayıflık Analizi")
     st.caption("Negatif yorumları analiz ederek teknik zafiyetleri ve kullanıcı şikayetlerini keşfedin")
 
-    reviewed_apps = sorted(reviews_df[reviews_df["Sentiment"]=="Negative"]["App"].unique().tolist())
+    # Uygulama listesi hazırla
+    reviewed_apps = sorted(
+        reviews_df[reviews_df["Sentiment"] == "Negative"]["App"].unique().tolist()
+    )
     filtered_app_names = set(filtered_df["App"].unique().tolist())
     reviewed_and_filtered = [a for a in reviewed_apps if a in filtered_app_names]
     app_pool = reviewed_and_filtered if reviewed_and_filtered else reviewed_apps
 
     if not app_pool:
         st.warning("Seçilen filtrelerle eşleşen yorumlu uygulama bulunamadı.")
-        st.stop()
-
-    col_sel1, col_sel2 = st.columns([2,1])
-    with col_sel1:
-        selected_app = st.selectbox(
-            "🔎 Analiz Edilecek Rakip Uygulama",
-            options=app_pool, index=0,
-            help="Sadece negatif yorumu olan uygulamalar listeleniyor",
-        )
-    with col_sel2:
-        top_n_words = st.slider("Gösterilecek Kelime Sayısı", 10, 50, 25)
-
-    neg_reviews = reviews_df[(reviews_df["App"]==selected_app)&(reviews_df["Sentiment"]=="Negative")]["Translated_Review"].dropna().tolist()
-    pos_reviews = reviews_df[(reviews_df["App"]==selected_app)&(reviews_df["Sentiment"]=="Positive")]["Translated_Review"].dropna().tolist()
-    neu_reviews = reviews_df[(reviews_df["App"]==selected_app)&(reviews_df["Sentiment"]=="Neutral")]["Translated_Review"].dropna().tolist()
-    all_rev     = reviews_df[reviews_df["App"]==selected_app]
-    total_reviews = len(all_rev)
-
-    if not neg_reviews:
-        st.info(f"**{selected_app}** için negatif yorum bulunamadı.")
-        st.stop()
-
-    app_info = apps_df[apps_df["App"]==selected_app].iloc[0] if selected_app in apps_df["App"].values else None
-
-    # KPI
-    m1,m2,m3,m4,m5 = st.columns(5)
-    m1.metric("🔴 Negatif", len(neg_reviews))
-    m2.metric("🟢 Pozitif", len(pos_reviews))
-    m3.metric("😐 Nötr",    len(neu_reviews))
-    m4.metric("📊 Toplam",  total_reviews)
-    neg_rate = len(neg_reviews)/total_reviews*100 if total_reviews else 0
-    m5.metric("⚠️ Şikayet Oranı", f"{neg_rate:.1f}%",
-              delta="yüksek" if neg_rate>30 else "normal", delta_color="inverse")
-
-    if app_info is not None:
-        st.markdown(
-            f"**Kategori:** {app_info.get('Category_Clean','—')} &nbsp;|&nbsp; "
-            f"**Puan:** {app_info.get('Rating','—')} ⭐ &nbsp;|&nbsp; "
-            f"**İndirme:** {app_info.get('Installs_num',0):,.0f} &nbsp;|&nbsp; "
-            f"**Tip:** {'🆓 Ücretsiz' if app_info.get('Is_Free') else '💎 Ücretli'}"
-        )
-
-    st.markdown("---")
-
-    STOPWORDS = {
-        "the","a","an","and","or","but","is","was","are","were","be","been","being",
-        "have","has","had","do","does","did","will","would","could","should","may",
-        "might","shall","can","need","this","that","these","those","it","its","of",
-        "in","on","at","to","for","with","from","by","about","as","into","through",
-        "during","before","after","above","below","between","out","off","over","under",
-        "then","once","i","me","my","we","our","you","your","he","she","they","them",
-        "their","what","which","who","when","where","why","how","all","both","each",
-        "so","if","because","while","app","application","game","just","like","really",
-        "very","much","more","even","still","also","now","get","got","use","used",
-        "using","good","great","bad","one","not","no","nan","s","t","don","doesn",
-        "didn","isn","wasn","aren","hasn","haven","won","can","ve","re","ll","m",
-        "am","im","ive","id","its","thats","youre","theyre",
-    }
-
-    def extract_words(reviews):
-        text = " ".join(reviews).lower()
-        words = re.findall(r"\b[a-z]{3,}\b", text)
-        return [w for w in words if w not in STOPWORDS]
-
-    neg_words = extract_words(neg_reviews)
-    pos_words = extract_words(pos_reviews)
-    word_freq = Counter(neg_words).most_common(top_n_words)
-    pos_word_freq = Counter(pos_words).most_common(top_n_words)
-
-    col_nlp1, col_nlp2 = st.columns([3,2], gap="medium")
-
-    with col_nlp1:
-        wf_df = pd.DataFrame(word_freq, columns=["Kelime","Frekans"])
-        fig_words = go.Figure(go.Bar(
-            x=wf_df["Frekans"], y=wf_df["Kelime"],
-            orientation="h",
-            marker=dict(
-                color=wf_df["Frekans"],
-                colorscale=[[0,"#7f1d1d"],[0.5,"#ef4444"],[1,"#fca5a5"]],
-                showscale=False, line=dict(width=0),
-            ),
-            text=wf_df["Frekans"], textposition="outside",
-            textfont=dict(color="#e2e8f0", size=10),
-            hovertemplate="<b>%{y}</b><br>%{x} kez<extra></extra>",
-        ))
-        _fmt_layout(fig_words, title=f"'{selected_app}' — Negatif Yorumlardaki En Sık Kelimeler",
-                    height=520,
-                    yaxis=dict(autorange="reversed", gridcolor="rgba(30,58,95,0.6)"),
-                    xaxis=dict(title="Frekans", gridcolor="rgba(30,58,95,0.6)"))
-        st.plotly_chart(fig_words, width='stretch')
-
-    with col_nlp2:
-        st.markdown("#### 🔑 Kritik Şikayet Kelimeleri")
-        max_freq = wf_df["Frekans"].max() if not wf_df.empty else 1
-        for _, row in wf_df.head(15).iterrows():
-            pct = row["Frekans"]/max_freq*100
-            st.markdown(f"""
-<div class="word-row">
-  <span style="width:90px;color:#e2e8f0;font-weight:600;font-size:.85rem">{row['Kelime']}</span>
-  <div class="word-bar" style="width:{pct:.0f}%;min-width:4px;flex:1"></div>
-  <span style="color:#94a3b8;font-size:.82rem;min-width:28px;text-align:right">{row['Frekans']}</span>
-</div>
-""", unsafe_allow_html=True)
-
-        # Donut
-        sent_counts = all_rev["Sentiment"].value_counts().reset_index()
-        sent_counts.columns = ["Duygu","Sayı"]
-        sent_map = {"Positive":"😊 Pozitif","Negative":"😤 Negatif","Neutral":"😐 Nötr"}
-        sent_counts["Duygu"] = sent_counts["Duygu"].map(sent_map).fillna(sent_counts["Duygu"])
-        fig_donut = px.pie(sent_counts, names="Duygu", values="Sayı",
-                           title="Duygu Dağılımı",
-                           color_discrete_sequence=["#34d399","#ef4444","#94a3b8"],
-                           hole=0.52)
-        fig_donut.update_traces(textfont_size=11, textfont_color="#e2e8f0",
-                                 marker=dict(line=dict(color="#04091a", width=2)))
-        _fmt_layout(fig_donut, height=280)
-        st.plotly_chart(fig_donut, width='stretch')
-
-    # Karşılaştırmalı Kelime Analizi
-    st.markdown("---")
-    st.markdown("#### 🔄 Pozitif vs Negatif Kelime Karşılaştırması")
-    col_cmp1, col_cmp2 = st.columns(2, gap="medium")
-    with col_cmp1:
-        pwf_df = pd.DataFrame(pos_word_freq, columns=["Kelime","Frekans"])
-        if not pwf_df.empty:
-            fig_pos = go.Figure(go.Bar(
-                x=pwf_df["Frekans"][:15], y=pwf_df["Kelime"][:15],
-                orientation="h",
-                marker=dict(color=pwf_df["Frekans"][:15],
-                            colorscale=[[0,"#064e3b"],[1,"#34d399"]],
-                            showscale=False, line=dict(width=0)),
-                text=pwf_df["Frekans"][:15], textposition="outside",
-                textfont=dict(color="#e2e8f0", size=10),
-            ))
-            _fmt_layout(fig_pos, title="En Sık Pozitif Kelimeler", height=320,
-                        yaxis=dict(autorange="reversed"))
-            st.plotly_chart(fig_pos, width='stretch')
-
-    with col_cmp2:
-        pol_data = all_rev[all_rev["Sentiment_Polarity"].notna()].copy()
-        pol_data["Sentiment_Polarity"] = pd.to_numeric(pol_data["Sentiment_Polarity"], errors="coerce")
-        if not pol_data.empty:
-            fig_pol = px.histogram(
-                pol_data, x="Sentiment_Polarity",
-                color="Sentiment", nbins=40, opacity=0.8,
-                title="Duygu Polarite Dağılımı",
-                labels={"Sentiment_Polarity":"Polarite","count":"Yorum Sayısı","Sentiment":"Duygu"},
-                color_discrete_map={"Positive":"#34d399","Negative":"#ef4444","Neutral":"#94a3b8"},
+    else:
+        col_sel1, col_sel2 = st.columns([2, 1])
+        with col_sel1:
+            selected_app = st.selectbox(
+                "🔎 Analiz Edilecek Rakip Uygulama",
+                options=app_pool,
+                index=0,
+                help="Sadece negatif yorumu olan uygulamalar listeleniyor",
             )
-            fig_pol.add_vline(x=0, line_dash="dash", line_color="#f59e0b",
-                               annotation_text="Nötr", annotation_font_color="#f59e0b")
-            _fmt_layout(fig_pol, height=320)
-            st.plotly_chart(fig_pol, width='stretch')
+        with col_sel2:
+            top_n_words = st.slider("Gösterilecek Kelime Sayısı", 10, 50, 25)
 
-    # Örnek yorumlar
-    st.markdown("---")
-    st.markdown("#### 📝 Örnek Negatif Yorumlar")
-    for i, rev in enumerate(neg_reviews[:8], 1):
-        st.markdown(f"""
-<div class="opp-card" style="border-left-color:#ef4444">
-  <p><b>#{i}</b> — {rev[:400]}{"…" if len(rev)>400 else ""}</p>
+        # Yorumları filtrele
+        mask_app = reviews_df["App"] == selected_app
+        neg_reviews = reviews_df[mask_app & (reviews_df["Sentiment"] == "Negative")]["Translated_Review"].dropna().tolist()
+        pos_reviews = reviews_df[mask_app & (reviews_df["Sentiment"] == "Positive")]["Translated_Review"].dropna().tolist()
+        neu_reviews = reviews_df[mask_app & (reviews_df["Sentiment"] == "Neutral")]["Translated_Review"].dropna().tolist()
+        all_rev = reviews_df[mask_app].copy()
+        total_reviews = len(all_rev)
+
+        if not neg_reviews:
+            st.info(f"**{selected_app}** için negatif yorum bulunamadı.")
+        else:
+            # Uygulama bilgisi
+            app_matches = apps_df[apps_df["App"] == selected_app]
+            app_info = app_matches.iloc[0] if not app_matches.empty else None
+
+            # KPI
+            m1, m2, m3, m4, m5 = st.columns(5)
+            m1.metric("🔴 Negatif", len(neg_reviews))
+            m2.metric("🟢 Pozitif", len(pos_reviews))
+            m3.metric("😐 Nötr", len(neu_reviews))
+            m4.metric("📊 Toplam", total_reviews)
+            neg_rate = len(neg_reviews) / total_reviews * 100 if total_reviews else 0
+            m5.metric(
+                "⚠️ Şikayet Oranı",
+                f"{neg_rate:.1f}%",
+                delta="yüksek" if neg_rate > 30 else "normal",
+                delta_color="inverse",
+            )
+
+            if app_info is not None:
+                cat_val   = app_info["Category_Clean"] if "Category_Clean" in app_info.index and pd.notna(app_info["Category_Clean"]) else "—"
+                rat_val   = f"{app_info['Rating']:.1f}" if "Rating" in app_info.index and pd.notna(app_info["Rating"]) else "—"
+                inst_val  = f"{int(app_info['Installs_num']):,}" if "Installs_num" in app_info.index and pd.notna(app_info["Installs_num"]) else "—"
+                free_val  = "🆓 Ücretsiz" if ("Is_Free" in app_info.index and app_info["Is_Free"]) else "💎 Ücretli"
+                st.markdown(
+                    f"**Kategori:** {cat_val} &nbsp;|&nbsp; "
+                    f"**Puan:** {rat_val} ⭐ &nbsp;|&nbsp; "
+                    f"**İndirme:** {inst_val} &nbsp;|&nbsp; "
+                    f"**Tip:** {free_val}"
+                )
+
+            st.markdown("---")
+
+            # Kelime analizi
+            STOPWORDS = {
+                "the","a","an","and","or","but","is","was","are","were","be","been","being",
+                "have","has","had","do","does","did","will","would","could","should","may",
+                "might","shall","can","need","this","that","these","those","it","its","of",
+                "in","on","at","to","for","with","from","by","about","as","into","through",
+                "during","before","after","above","below","between","out","off","over","under",
+                "then","once","i","me","my","we","our","you","your","he","she","they","them",
+                "their","what","which","who","when","where","why","how","all","both","each",
+                "so","if","because","while","app","application","game","just","like","really",
+                "very","much","more","even","still","also","now","get","got","use","used",
+                "using","good","great","bad","one","not","no","nan","s","t","don","doesn",
+                "didn","isn","wasn","aren","hasn","haven","won","can","ve","re","ll","m",
+                "am","im","ive","id","its","thats","youre","theyre",
+            }
+
+            def extract_words(reviews):
+                text = " ".join(reviews).lower()
+                words = re.findall(r"\b[a-z]{3,}\b", text)
+                return [w for w in words if w not in STOPWORDS]
+
+            neg_words    = extract_words(neg_reviews)
+            pos_words    = extract_words(pos_reviews)
+            word_freq    = Counter(neg_words).most_common(top_n_words)
+            pos_word_freq = Counter(pos_words).most_common(top_n_words)
+
+            col_nlp1, col_nlp2 = st.columns([3, 2], gap="medium")
+
+            with col_nlp1:
+                wf_df = pd.DataFrame(word_freq, columns=["Kelime", "Frekans"])
+                if not wf_df.empty:
+                    fig_words = go.Figure(go.Bar(
+                        x=wf_df["Frekans"], y=wf_df["Kelime"],
+                        orientation="h",
+                        marker=dict(
+                            color=wf_df["Frekans"],
+                            colorscale=[[0, "#7f1d1d"], [0.5, "#ef4444"], [1, "#fca5a5"]],
+                            showscale=False, line=dict(width=0),
+                        ),
+                        text=wf_df["Frekans"], textposition="outside",
+                        textfont=dict(color="#e2e8f0", size=10),
+                        hovertemplate="<b>%{y}</b><br>%{x} kez<extra></extra>",
+                    ))
+                    _fmt_layout(
+                        fig_words,
+                        title=f"\'{selected_app}\' — Negatif Yorumlardaki En Sık Kelimeler",
+                        height=520,
+                        yaxis=dict(autorange="reversed", gridcolor="rgba(30,58,95,0.6)"),
+                        xaxis=dict(title="Frekans", gridcolor="rgba(30,58,95,0.6)"),
+                    )
+                    st.plotly_chart(fig_words, width="stretch")
+
+            with col_nlp2:
+                st.markdown("#### 🔑 Kritik Şikayet Kelimeleri")
+                if not wf_df.empty:
+                    max_freq = wf_df["Frekans"].max()
+                    for _, row in wf_df.head(15).iterrows():
+                        pct = row["Frekans"] / max_freq * 100
+                        st.markdown(f"""
+<div class="word-row">
+  <span style="width:90px;color:#e2e8f0;font-weight:600;font-size:.85rem">{row["Kelime"]}</span>
+  <div class="word-bar" style="width:{pct:.0f}%;min-width:4px;flex:1"></div>
+  <span style="color:#94a3b8;font-size:.82rem;min-width:28px;text-align:right">{row["Frekans"]}</span>
 </div>
 """, unsafe_allow_html=True)
 
-    # Actionable insight
-    top_complaints = [w for w,_ in word_freq[:5]]
-    if top_complaints:
-        st.success(
-            f"**💡 Girişimci Çıkarımı — {selected_app}:**\n\n"
-            f"En sık şikayet edilen konular: **{', '.join(top_complaints)}**. "
-            f"Şikayet oranı **{neg_rate:.0f}%** ile {'yüksek' if neg_rate>30 else 'normal'} seviyede. "
-            f"Bu sorunları çözen bir uygulama, mevcut mutsuz kullanıcı kitlesini doğrudan hedefleyebilir."
-        )
+                # Duygu dağılımı donut
+                sent_counts = all_rev["Sentiment"].value_counts().reset_index()
+                sent_counts.columns = ["Duygu", "Sayı"]
+                sent_map = {"Positive": "😊 Pozitif", "Negative": "😤 Negatif", "Neutral": "😐 Nötr"}
+                sent_counts["Duygu"] = sent_counts["Duygu"].map(sent_map).fillna(sent_counts["Duygu"])
+                fig_donut = px.pie(
+                    sent_counts, names="Duygu", values="Sayı",
+                    title="Duygu Dağılımı",
+                    color_discrete_sequence=["#34d399", "#ef4444", "#94a3b8"],
+                    hole=0.52,
+                )
+                fig_donut.update_traces(
+                    textfont_size=11, textfont_color="#e2e8f0",
+                    marker=dict(line=dict(color="#04091a", width=2)),
+                )
+                _fmt_layout(fig_donut, height=280)
+                st.plotly_chart(fig_donut, width="stretch")
+
+            # Karşılaştırmalı Kelime Analizi
+            st.markdown("---")
+            st.markdown("#### 🔄 Pozitif vs Negatif Kelime Karşılaştırması")
+            col_cmp1, col_cmp2 = st.columns(2, gap="medium")
+
+            with col_cmp1:
+                pwf_df = pd.DataFrame(pos_word_freq, columns=["Kelime", "Frekans"])
+                if not pwf_df.empty:
+                    fig_pos = go.Figure(go.Bar(
+                        x=pwf_df["Frekans"][:15], y=pwf_df["Kelime"][:15],
+                        orientation="h",
+                        marker=dict(
+                            color=pwf_df["Frekans"][:15],
+                            colorscale=[[0, "#064e3b"], [1, "#34d399"]],
+                            showscale=False, line=dict(width=0),
+                        ),
+                        text=pwf_df["Frekans"][:15], textposition="outside",
+                        textfont=dict(color="#e2e8f0", size=10),
+                    ))
+                    _fmt_layout(fig_pos, title="En Sık Pozitif Kelimeler", height=320,
+                                yaxis=dict(autorange="reversed"))
+                    st.plotly_chart(fig_pos, width="stretch")
+
+            with col_cmp2:
+                if "Sentiment_Polarity" in all_rev.columns:
+                    pol_data = all_rev[all_rev["Sentiment_Polarity"].notna()].copy()
+                    pol_data["Sentiment_Polarity"] = pd.to_numeric(pol_data["Sentiment_Polarity"], errors="coerce")
+                    pol_data = pol_data.dropna(subset=["Sentiment_Polarity"])
+                    if not pol_data.empty:
+                        fig_pol = px.histogram(
+                            pol_data, x="Sentiment_Polarity",
+                            color="Sentiment", nbins=40, opacity=0.8,
+                            title="Duygu Polarite Dağılımı",
+                            labels={"Sentiment_Polarity": "Polarite", "count": "Yorum Sayısı", "Sentiment": "Duygu"},
+                            color_discrete_map={"Positive": "#34d399", "Negative": "#ef4444", "Neutral": "#94a3b8"},
+                        )
+                        fig_pol.add_vline(x=0, line_dash="dash", line_color="#f59e0b",
+                                          annotation_text="Nötr", annotation_font_color="#f59e0b")
+                        _fmt_layout(fig_pol, height=320)
+                        st.plotly_chart(fig_pol, width="stretch")
+
+            # Örnek negatif yorumlar
+            st.markdown("---")
+            st.markdown("#### 📝 Örnek Negatif Yorumlar")
+            for i, rev in enumerate(neg_reviews[:8], 1):
+                safe_rev = str(rev)[:400]
+                st.markdown(f"""
+<div class="opp-card" style="border-left-color:#ef4444">
+  <p><b>#{i}</b> — {safe_rev}{"…" if len(str(rev)) > 400 else ""}</p>
+</div>
+""", unsafe_allow_html=True)
+
+            # Actionable insight
+            top_complaints = [w for w, _ in word_freq[:5]]
+            if top_complaints:
+                st.success(
+                    f"**💡 Girişimci Çıkarımı — {selected_app}:**\n\n"
+                    f"En sık şikayet edilen konular: **{', '.join(top_complaints)}**. "
+                    f"Şikayet oranı **{neg_rate:.0f}%** ile "
+                    f"{'yüksek' if neg_rate > 30 else 'normal'} seviyede. "
+                    f"Bu sorunları çözen bir uygulama, mevcut mutsuz kullanıcı kitlesini doğrudan hedefleyebilir."
+                )
 
 # ─────────────────────────── FOOTER ────────────────────────────────────────
 st.markdown("---")
