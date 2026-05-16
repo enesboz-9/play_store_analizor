@@ -200,7 +200,8 @@ def _find_or_download(*filenames):
                         with open(dest, "wb") as f:
                             for chunk in r.iter_content(chunk_size=8192):
                                 f.write(chunk)
-                    st.rerun()
+                    # NOT: st.rerun() burada sonsuz döngüye neden oluyordu — kaldırıldı
+                    return str(dest)   # indirme başarılı, yolu döndür
                 except Exception as e:
                     st.error(f"**{filename} indirilemedi.**\n\nHata: `{e}`\n\nURL: `{url}`")
                     raise
@@ -495,7 +496,7 @@ with tab1:
         )
         _fmt_layout(fig_bubble, height=480)
         fig_bubble.update_traces(marker=dict(opacity=0.82, line=dict(width=1, color="#04091a")))
-        st.plotly_chart(fig_bubble, use_container_width=True)
+        st.plotly_chart(fig_bubble, width='stretch')
 
     with col_b:
         top15 = cat_agg.nlargest(15,"app_count").sort_values("app_count")
@@ -514,7 +515,7 @@ with tab1:
             hovertemplate="<b>%{y}</b><br>%{x:,} uygulama<extra></extra>",
         ))
         _fmt_layout(fig_bar, title="En Kalabalık 15 Kategori", height=480)
-        st.plotly_chart(fig_bar, use_container_width=True)
+        st.plotly_chart(fig_bar, width='stretch')
 
     st.markdown("---")
     st.markdown("### 📊 İndirme & Puan Dağılımları")
@@ -532,7 +533,7 @@ with tab1:
             title="Toplam İndirme — Top 12 Kategori",
         )
         _fmt_layout(fig_inst, height=420)
-        st.plotly_chart(fig_inst, use_container_width=True)
+        st.plotly_chart(fig_inst, width='stretch')
 
     with col_d:
         fig_rating_box = px.box(
@@ -545,7 +546,7 @@ with tab1:
         )
         fig_rating_box.update_layout(xaxis_tickangle=-45, showlegend=True)
         _fmt_layout(fig_rating_box, height=420)
-        st.plotly_chart(fig_rating_box, use_container_width=True)
+        st.plotly_chart(fig_rating_box, width='stretch')
 
     st.markdown("---")
     st.markdown("### 🔥 Pazar Isı Haritası")
@@ -585,7 +586,7 @@ with tab1:
     ))
     _fmt_layout(fig_heat, title="Kategori × Puan Aralığı Dağılımı", height=520,
                 xaxis=dict(title="Puan Aralığı"), yaxis=dict(title=""))
-    st.plotly_chart(fig_heat, use_container_width=True)
+    st.plotly_chart(fig_heat, width='stretch')
 
     st.markdown("---")
     st.markdown("### 📈 Pazar Büyüklüğü Özet Tablosu")
@@ -599,7 +600,7 @@ with tab1:
         "competition_score":"Rekabet Skoru",
     }
     display_cat = cat_agg[[c for c in show_cols]].rename(columns=show_cols).sort_values("Toplam İndirme (M)", ascending=False)
-    st.dataframe(display_cat, use_container_width=True, height=420, hide_index=True)
+    st.dataframe(display_cat, width='stretch', height=420, hide_index=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -713,7 +714,7 @@ with tab2:
                     xaxis=dict(title="Ortalama Kullanıcı Puanı", range=[1,5.1], gridcolor="rgba(30,58,95,0.6)"),
                     yaxis=dict(title="Toplam İndirme (Milyon)", type="log", gridcolor="rgba(30,58,95,0.6)"),
                     height=500)
-        st.plotly_chart(fig_quad, use_container_width=True)
+        st.plotly_chart(fig_quad, width='stretch')
 
     with col_q2:
         st.markdown("#### 🏅 Fırsat Skoru Sıralaması")
@@ -733,7 +734,7 @@ with tab2:
                 hovertemplate="<b>%{y}</b><br>Skor: %{x:.0f}<extra></extra>",
             ))
             _fmt_layout(fig_opp_rank, title="Top 10 Fırsat Kategorisi", height=360)
-            st.plotly_chart(fig_opp_rank, use_container_width=True)
+            st.plotly_chart(fig_opp_rank, width='stretch')
         else:
             st.info("Eşikleri gevşetin.")
 
@@ -749,7 +750,7 @@ with tab2:
             )
             fig_gap.update_layout(xaxis_tickangle=-30, showlegend=False)
             _fmt_layout(fig_gap, height=260, margin=dict(l=10,r=10,t=40,b=60))
-            st.plotly_chart(fig_gap, use_container_width=True)
+            st.plotly_chart(fig_gap, width='stretch')
 
     # ── Opportunity cards ──
     st.markdown("---")
@@ -797,7 +798,7 @@ with tab2:
         opp_show["Değerlendirme"]= opp_show["Değerlendirme"].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "—") if "Değerlendirme" in opp_show.columns else "—"
         opp_show["Ücretsiz"]     = opp_show["Ücretsiz"].map({True:"✅","False":"💎"}) if "Ücretsiz" in opp_show.columns else "—"
 
-        st.dataframe(opp_show, use_container_width=True, height=400, hide_index=True)
+        st.dataframe(opp_show, width='stretch', height=400, hide_index=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -851,7 +852,7 @@ with tab3:
             hovertemplate="<b>%{y}</b><br>%{x:.2f}M indirme<extra></extra>",
         ))
         _fmt_layout(fig_top, title=f"Top 15 Uygulama — {sel_cat_comp}", height=480)
-        st.plotly_chart(fig_top, use_container_width=True)
+        st.plotly_chart(fig_top, width='stretch')
 
     with col_r2:
         # Puan dağılımı histogram
@@ -864,7 +865,7 @@ with tab3:
             opacity=0.8,
         )
         _fmt_layout(fig_rating_hist, height=250)
-        st.plotly_chart(fig_rating_hist, use_container_width=True)
+        st.plotly_chart(fig_rating_hist, width='stretch')
 
         # İndirme dağılımı
         inst_data = cat_data[cat_data["Installs_num"]>0].copy()
@@ -878,7 +879,7 @@ with tab3:
                 log_x=True, opacity=0.8,
             )
             _fmt_layout(fig_inst_hist, height=250)
-            st.plotly_chart(fig_inst_hist, use_container_width=True)
+            st.plotly_chart(fig_inst_hist, width='stretch')
 
     st.markdown("---")
 
@@ -899,7 +900,7 @@ with tab3:
             size_max=20,
         )
         _fmt_layout(fig_scatter, height=400)
-        st.plotly_chart(fig_scatter, use_container_width=True)
+        st.plotly_chart(fig_scatter, width='stretch')
 
     # Tablo
     st.markdown(f"### 📋 {sel_cat_comp} — Tüm Uygulamalar")
@@ -909,7 +910,7 @@ with tab3:
     }).sort_values("İndirme", ascending=False).reset_index(drop=True)
     if "İndirme" in tbl: tbl["İndirme"] = tbl["İndirme"].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "—")
     if "Ücretsiz" in tbl: tbl["Ücretsiz"] = tbl["Ücretsiz"].map({True:"✅",False:"💎"})
-    st.dataframe(tbl, use_container_width=True, height=380, hide_index=True)
+    st.dataframe(tbl, width='stretch', height=380, hide_index=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -949,7 +950,7 @@ with tab4:
         )
         fig_violin.update_layout(xaxis=dict(tickvals=[True,False],ticktext=["Ücretsiz","Ücretli"]),showlegend=False)
         _fmt_layout(fig_violin, height=380)
-        st.plotly_chart(fig_violin, use_container_width=True)
+        st.plotly_chart(fig_violin, width='stretch')
 
     with col_p2:
         # Ücretsiz/Ücretli dağılımı kategori bazında
@@ -970,7 +971,7 @@ with tab4:
         )
         fig_price_cat.update_layout(xaxis_tickangle=-35)
         _fmt_layout(fig_price_cat, height=380)
-        st.plotly_chart(fig_price_cat, use_container_width=True)
+        st.plotly_chart(fig_price_cat, width='stretch')
 
     st.markdown("---")
     # Fiyat aralığı analizi
@@ -1005,7 +1006,7 @@ with tab4:
                     title="Fiyat Aralığı Dağılımı",
                 )
                 _fmt_layout(fig_price_dist, height=320)
-                st.plotly_chart(fig_price_dist, use_container_width=True)
+                st.plotly_chart(fig_price_dist, width='stretch')
 
             with col_pr2:
                 fig_price_rating = px.scatter(
@@ -1019,7 +1020,7 @@ with tab4:
                     log_x=True, opacity=0.7, size_max=15,
                 )
                 _fmt_layout(fig_price_rating, height=320)
-                st.plotly_chart(fig_price_rating, use_container_width=True)
+                st.plotly_chart(fig_price_rating, width='stretch')
 
     st.markdown("---")
     # Strateji önerileri
@@ -1146,7 +1147,7 @@ with tab5:
                     height=520,
                     yaxis=dict(autorange="reversed", gridcolor="rgba(30,58,95,0.6)"),
                     xaxis=dict(title="Frekans", gridcolor="rgba(30,58,95,0.6)"))
-        st.plotly_chart(fig_words, use_container_width=True)
+        st.plotly_chart(fig_words, width='stretch')
 
     with col_nlp2:
         st.markdown("#### 🔑 Kritik Şikayet Kelimeleri")
@@ -1173,7 +1174,7 @@ with tab5:
         fig_donut.update_traces(textfont_size=11, textfont_color="#e2e8f0",
                                  marker=dict(line=dict(color="#04091a", width=2)))
         _fmt_layout(fig_donut, height=280)
-        st.plotly_chart(fig_donut, use_container_width=True)
+        st.plotly_chart(fig_donut, width='stretch')
 
     # Karşılaştırmalı Kelime Analizi
     st.markdown("---")
@@ -1193,7 +1194,7 @@ with tab5:
             ))
             _fmt_layout(fig_pos, title="En Sık Pozitif Kelimeler", height=320,
                         yaxis=dict(autorange="reversed"))
-            st.plotly_chart(fig_pos, use_container_width=True)
+            st.plotly_chart(fig_pos, width='stretch')
 
     with col_cmp2:
         pol_data = all_rev[all_rev["Sentiment_Polarity"].notna()].copy()
@@ -1209,7 +1210,7 @@ with tab5:
             fig_pol.add_vline(x=0, line_dash="dash", line_color="#f59e0b",
                                annotation_text="Nötr", annotation_font_color="#f59e0b")
             _fmt_layout(fig_pol, height=320)
-            st.plotly_chart(fig_pol, use_container_width=True)
+            st.plotly_chart(fig_pol, width='stretch')
 
     # Örnek yorumlar
     st.markdown("---")
