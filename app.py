@@ -283,7 +283,7 @@ def _fmt_layout(fig: go.Figure, **extra) -> go.Figure:
     return fig
 
 
-@st.cache_data(show_spinner="Veriler yükleniyor…")
+@st.cache_data(show_spinner="Veriler yükleniyor… / Loading data…")
 def load_apps() -> pd.DataFrame:
     if _IS_NEW_FORMAT:
         df = pd.read_csv(APPS_PATH, on_bad_lines="skip", low_memory=False)
@@ -337,7 +337,7 @@ def load_apps() -> pd.DataFrame:
     return df
 
 
-@st.cache_data(show_spinner="Yorumlar yükleniyor…")
+@st.cache_data(show_spinner="Yorumlar yükleniyor… / Loading reviews…")
 def load_reviews() -> pd.DataFrame:
     df = pd.read_csv(REVIEWS_PATH, on_bad_lines="skip")
     df["Translated_Review"] = df["Translated_Review"].fillna("")
@@ -396,41 +396,41 @@ with st.sidebar:
 
     st.markdown("---")
     # ── Gelişmiş Filtreler ──
-    with st.expander("⚙️ Gelişmiş Filtreler", expanded=False):
+    with st.expander("⚙️ Gelişmiş Filtreler *(Advanced Filters)*", expanded=False):
         min_reviews = st.number_input(
-            "Min. Değerlendirme Sayısı",
+            "Min. Değerlendirme Sayısı *(Min. Reviews)*",
             min_value=0, value=0, step=100,
-            help="Bu sayının altındaki uygulamaları filtrele",
+            help="Bu sayının altındaki uygulamaları filtrele / Filter apps below this count",
         )
         content_ratings = []
         if "Content Rating" in apps_df.columns:
             cr_opts = sorted(apps_df["Content Rating"].dropna().unique().tolist())
             content_ratings = st.multiselect(
-                "İçerik Derecelendirmesi",
+                "İçerik Derecelendirmesi *(Content Rating)*",
                 options=cr_opts,
                 default=cr_opts,
             )
-        min_size = st.slider("Min. Boyut (MB)", 0.0, 500.0, 0.0, 5.0)
-        max_size = st.slider("Max. Boyut (MB)", 0.0, 500.0, 500.0, 5.0)
+        min_size = st.slider("Min. Boyut / Size (MB)", 0.0, 500.0, 0.0, 5.0)
+        max_size = st.slider("Max. Boyut / Size (MB)", 0.0, 500.0, 500.0, 5.0)
 
     st.markdown("---")
     # ── Fırsat Eşikleri ──
-    st.markdown("### ⚡ Fırsat Eşikleri")
+    st.markdown("### ⚡ Fırsat Eşikleri *(Opportunity Thresholds)*")
     opp_min_installs = st.slider(
-        "Min İndirme (M)",
+        "Min İndirme / Installs (M)",
         min_value=0.1, max_value=50.0, value=10.0, step=0.5,
     )
     opp_max_rating = st.slider(
-        "Max Puan",
+        "Max Puan *(Max Rating)*",
         min_value=3.0, max_value=4.9, value=4.2, step=0.05,
     )
     opp_min_apps = st.slider(
-        "Min Uygulama Sayısı (kategoride)",
+        "Min Uygulama Sayısı *(Min Apps in Category)*",
         min_value=1, max_value=100, value=5,
     )
 
     st.markdown("---")
-    st.caption(f"Veri: Kaggle Google Play Store · {'~2.3M' if _IS_NEW_FORMAT else '~10K'} uygulama")
+    st.caption(f"📊 Veri / Data: Kaggle Google Play Store · {'~2.3M' if _IS_NEW_FORMAT else '~10K'} uygulama / apps")
 
 
 # ─────────────────────────── FILTER ────────────────────────────────────────
@@ -470,28 +470,29 @@ st.markdown(f"""
 <div class="kpi-header">
   <h1>🚀 AppVentures</h1>
   <p>Mobil Girişimler İçin Profesyonel Pazar Analizi &amp; Fırsat Radarı</p>
+  <p style="color:#475569;font-size:.85rem;margin-top:.2rem;">Professional Market Analysis &amp; Opportunity Radar for Mobile Ventures</p>
 </div>
 """, unsafe_allow_html=True)
 
 # ─────────────────────────── KPI STRIP ─────────────────────────────────────
 kc = st.columns(6)
-kc[0].metric("📱 Toplam Uygulama",  f"{TOTAL_APPS:,}", help="Veri setindeki toplam uygulama sayısı")
-kc[1].metric("🔍 Filtreli",          f"{len(filtered_df):,}", delta=f"{len(filtered_df)/TOTAL_APPS*100:.1f}% kapsam")
-kc[2].metric("⭐ Ort. Puan",         f"{filtered_df['Rating'].mean():.2f}" if not filtered_df.empty else "—")
+kc[0].metric("📱 Toplam Uygulama\n*(Total Apps)",  f"{TOTAL_APPS:,}", help="Veri setindeki toplam uygulama sayısı / Total apps in dataset")
+kc[1].metric("🔍 Filtreli / Filtered",          f"{len(filtered_df):,}", delta=f"{len(filtered_df)/TOTAL_APPS*100:.1f}% kapsam")
+kc[2].metric("⭐ Ort. Puan / Avg Rating",         f"{filtered_df['Rating'].mean():.2f}" if not filtered_df.empty else "—")
 median_inst = filtered_df["Installs_num"].median() if not filtered_df.empty else 0
-kc[3].metric("📥 Medyan İndirme",    f"{int(median_inst):,}" if pd.notna(median_inst) else "—")
-kc[4].metric("🆓 Ücretsiz Oran",     f"{filtered_df['Is_Free'].mean()*100:.0f}%" if not filtered_df.empty else "—")
-kc[5].metric("🗂️ Kategori",          f"{filtered_df['Category_Clean'].nunique()}")
+kc[3].metric("📥 Medyan İndirme\n*(Median Installs)",    f"{int(median_inst):,}" if pd.notna(median_inst) else "—")
+kc[4].metric("🆓 Ücretsiz / Free Rate",     f"{filtered_df['Is_Free'].mean()*100:.0f}%" if not filtered_df.empty else "—")
+kc[5].metric("🗂️ Kategori / Categories",          f"{filtered_df['Category_Clean'].nunique()}")
 
 st.markdown("---")
 
 # ─────────────────────────── TABS ──────────────────────────────────────────
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🔬 Pazar Röntgeni",
-    "🎯 Fırsat Radarı",
-    "🏆 Rekabet Analizi",
-    "💰 Gelir & Fiyat Stratejisi",
-    "💬 Kullanıcı Sesi",
+    "🔬 Pazar Röntgeni · Market X-Ray",
+    "🎯 Fırsat Radarı · Opportunity Radar",
+    "🏆 Rekabet · Competitive Intel",
+    "💰 Gelir & Fiyat · Revenue & Pricing",
+    "💬 Kullanıcı Sesi · Voice of Customer",
 ])
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -502,8 +503,8 @@ with tab1:
         st.warning("Seçilen filtrelere uygun veri bulunamadı.")
         st.markdown("Lütfen sol panelden filtreleri genişletin.")
 
-    st.markdown("### 🏭 Pazar Haritası")
-    st.caption("Kategorilere göre rekabet yoğunluğu, talep ve memnuniyet dağılımı")
+    st.markdown("### 🏭 Pazar Haritası *(Market Map)*")
+    st.caption("Kategorilere göre rekabet yoğunluğu, talep ve memnuniyet dağılımı · Competition intensity, demand & satisfaction by category")
 
     col_a, col_b = st.columns([3,2], gap="medium")
     with col_a:
@@ -521,12 +522,12 @@ with tab1:
                 "Category_Clean":False,
             },
             labels={
-                "avg_rating":"Ort. Puan",
-                "app_count":"Uygulama Sayısı",
+                "avg_rating":"Ort. Puan / Avg Rating",
+                "app_count":"Uygulama Sayısı / App Count",
                 "total_installs_M":"İndirme (M)",
-                "free_pct_label":"Ücretsiz Oran",
+                "free_pct_label":"Ücretsiz Oran / Free Rate",
             },
-            title="Kategori Haritası: Rekabet × Puan × Talep",
+            title="Kategori Haritası · Category Map: Rekabet × Puan × Talep\n(Competition × Rating × Demand)",
             size_max=60,
         )
         _fmt_layout(fig_bubble, height=480)
@@ -549,11 +550,11 @@ with tab1:
             textposition="outside", textfont=dict(color="#e2e8f0", size=10),
             hovertemplate="<b>%{y}</b><br>%{x:,} uygulama<extra></extra>",
         ))
-        _fmt_layout(fig_bar, title="En Kalabalık 15 Kategori", height=480)
+        _fmt_layout(fig_bar, title="En Kalabalık 15 Kategori *(Top 15 Categories by App Count)*", height=480)
         st.plotly_chart(fig_bar, width='stretch')
 
     st.markdown("---")
-    st.markdown("### 📊 İndirme & Puan Dağılımları")
+    st.markdown("### 📊 İndirme & Puan Dağılımları *(Install & Rating Distributions)*")
 
     col_c, col_d = st.columns(2, gap="medium")
     with col_c:
@@ -564,8 +565,8 @@ with tab1:
             orientation="h",
             color="avg_rating",
             color_continuous_scale=[[0,"#ef4444"],[0.5,"#f59e0b"],[1,"#34d399"]],
-            labels={"total_installs_M":"Toplam İndirme (M)","Category_Clean":"Kategori","avg_rating":"Puan"},
-            title="Toplam İndirme — Top 12 Kategori",
+            labels={"total_installs_M":"Toplam İndirme / Installs (M)","Category_Clean":"Kategori / Category","avg_rating":"Puan"},
+            title="Toplam İndirme · Total Installs — Top 12 Kategori / Categories",
         )
         _fmt_layout(fig_inst, height=420)
         st.plotly_chart(fig_inst, width='stretch')
@@ -576,16 +577,16 @@ with tab1:
             x="Category_Clean", y="Rating",
             color="Is_Free",
             color_discrete_map={True:"#38bdf8", False:"#f59e0b"},
-            labels={"Category_Clean":"Kategori","Rating":"Puan","Is_Free":"Ücretsiz"},
-            title="Puan Dağılımı (Box Plot)",
+            labels={"Category_Clean":"Kategori / Category","Rating":"Puan","Is_Free":"Ücretsiz"},
+            title="Puan Dağılımı · Rating Distribution (Box Plot)",
         )
         fig_rating_box.update_layout(xaxis_tickangle=-45, showlegend=True)
         _fmt_layout(fig_rating_box, height=420)
         st.plotly_chart(fig_rating_box, width='stretch')
 
     st.markdown("---")
-    st.markdown("### 🔥 Pazar Isı Haritası")
-    st.caption("Kategorilerdeki uygulama yoğunluğu ve puan dağılımı")
+    st.markdown("### 🔥 Pazar Isı Haritası *(Market Heat Map)*")
+    st.caption("Kategorilerdeki uygulama yoğunluğu ve puan dağılımı · App density and rating spread across categories")
 
     top_cats_heat = cat_agg.nlargest(20,"app_count")["Category_Clean"].tolist()
     heat_pivot = compute_heat(_fhash, filtered_df, top_cats_heat)
@@ -600,20 +601,20 @@ with tab1:
         texttemplate="%{text:,}",
         textfont=dict(size=9, color="#e2e8f0"),
     ))
-    _fmt_layout(fig_heat, title="Kategori × Puan Aralığı Dağılımı", height=520,
+    _fmt_layout(fig_heat, title="Kategori × Puan Aralığı Dağılımı · Category × Rating Range Distribution", height=520,
                 xaxis=dict(title="Puan Aralığı"), yaxis=dict(title=""))
     st.plotly_chart(fig_heat, width='stretch')
 
     st.markdown("---")
-    st.markdown("### 📈 Pazar Büyüklüğü Özet Tablosu")
+    st.markdown("### 📈 Pazar Büyüklüğü Özet Tablosu *(Market Size Summary)*")
     show_cols = {
-        "Category_Clean":"Kategori",
-        "app_count":"Uygulama Sayısı",
-        "avg_rating":"Ort. Puan",
-        "total_installs_M":"Toplam İndirme (M)",
-        "median_installs_k":"Medyan İndirme (K)",
-        "free_pct_label":"Ücretsiz Oran",
-        "competition_score":"Rekabet Skoru",
+        "Category_Clean":"Kategori / Category",
+        "app_count":"Uygulama Sayısı / App Count",
+        "avg_rating":"Ort. Puan / Avg Rating",
+        "total_installs_M":"Toplam İndirme / Installs (M)",
+        "median_installs_k":"Medyan İndirme / Median Installs (K)",
+        "free_pct_label":"Ücretsiz Oran / Free Rate",
+        "competition_score":"Rekabet Skoru / Competition Score",
     }
     display_cat = cat_agg[[c for c in show_cols]].rename(columns=show_cols).sort_values("Toplam İndirme (M)", ascending=False)
     st.dataframe(display_cat, width='stretch', height=420, hide_index=True)
@@ -658,7 +659,7 @@ with tab2:
         filtered_df["Rating"].notna()
     ].copy()
 
-    st.markdown("### 🎯 Fırsat Algoritması")
+    st.markdown("### 🎯 Fırsat Algoritması *(Opportunity Algorithm)*")
     st.markdown(
         f"> **Yüksek talep** (>{opp_min_installs:.1f}M indirme) "
         f"**ama düşük memnuniyet** (<{opp_max_rating} puan) olan alanlar. "
@@ -726,14 +727,14 @@ with tab2:
                             annotation_text=f"{opp_min_installs}M İndirme",
                             annotation_font_color="#38bdf8")
         _fmt_layout(fig_quad,
-                    title="Talep × Memnuniyet Matrisi",
+                    title="Talep × Memnuniyet Matrisi · Demand × Satisfaction Matrix",
                     xaxis=dict(title="Ortalama Kullanıcı Puanı", range=[1,5.1], gridcolor="rgba(30,58,95,0.6)"),
                     yaxis=dict(title="Toplam İndirme (Milyon)", type="log", gridcolor="rgba(30,58,95,0.6)"),
                     height=500)
         st.plotly_chart(fig_quad, width='stretch')
 
     with col_q2:
-        st.markdown("#### 🏅 Fırsat Skoru Sıralaması")
+        st.markdown("#### 🏅 Fırsat Skoru Sıralaması *(Opportunity Score Ranking)*")
         if not cat_opp_filtered.empty:
             fig_opp_rank = go.Figure(go.Bar(
                 y=cat_opp_filtered.head(10)["Category_Clean"].str[:20][::-1],
@@ -749,10 +750,10 @@ with tab2:
                 textfont=dict(color="#e2e8f0",size=10),
                 hovertemplate="<b>%{y}</b><br>Skor: %{x:.0f}<extra></extra>",
             ))
-            _fmt_layout(fig_opp_rank, title="Top 10 Fırsat Kategorisi", height=360)
+            _fmt_layout(fig_opp_rank, title="Top 10 Fırsat Kategorisi · Top 10 Opportunity Categories", height=360)
             st.plotly_chart(fig_opp_rank, width='stretch')
         else:
-            st.info("Eşikleri gevşetin.")
+            st.info("Eşikleri gevşetin. / Adjust thresholds.")
 
         # Pazar açığı chart
         if not cat_opp_filtered.empty:
@@ -761,7 +762,7 @@ with tab2:
                 x="Category_Clean", y="market_gap",
                 color="market_gap",
                 color_continuous_scale=[[0,"#1e3a5f"],[1,"#ef4444"]],
-                title="Pazar Açığı Skoru",
+                title="Pazar Açığı Skoru · Market Gap Score",
                 labels={"Category_Clean":"","market_gap":"Açık Skoru"},
             )
             fig_gap.update_layout(xaxis_tickangle=-30, showlegend=False)
@@ -770,10 +771,10 @@ with tab2:
 
     # ── Opportunity cards ──
     st.markdown("---")
-    st.markdown("### 💡 Tespit Edilen Fırsatlar")
+    st.markdown("### 💡 Tespit Edilen Fırsatlar *(Detected Opportunities)*")
 
     if cat_opp_filtered.empty:
-        st.info("Mevcut filtreler ile fırsat bulunamadı. Sol panelden eşikleri gevşetin.")
+        st.info("Mevcut filtreler ile fırsat bulunamadı. Sol panelden eşikleri gevşetin. · No opportunities found. Adjust thresholds in the sidebar.")
     else:
         for i, (_, row) in enumerate(cat_opp_filtered.iterrows()):
             demand  = "🔥 Çok Yüksek" if row["total_M"]>50 else ("⚡ Yüksek" if row["total_M"]>10 else "📈 Orta")
@@ -799,15 +800,15 @@ with tab2:
 
     # ── Fırsat uygulamaları tablosu ──
     st.markdown("---")
-    st.markdown(f"### 📋 Fırsat Uygulamaları ({len(opp_apps):,} adet)")
-    st.caption(f">{opp_min_installs:.1f}M indirme VE <{opp_max_rating} puan olan uygulamalar")
+    st.markdown(f"### 📋 Fırsat Uygulamaları · Opportunity Apps ({len(opp_apps):,} adet / apps)")
+    st.caption(f">{opp_min_installs:.1f}M indirme / installs VE / AND <{opp_max_rating} puan / rating olan uygulamalar / apps")
 
     if not opp_apps.empty:
         display_cols = [c for c in ["App","Category_Clean","Rating","Installs_num","Is_Free","Reviews","Size_MB"] if c in opp_apps.columns]
         opp_show = opp_apps[display_cols].rename(columns={
-            "Category_Clean":"Kategori","Rating":"Puan",
-            "Installs_num":"İndirme","Is_Free":"Ücretsiz",
-            "Reviews":"Değerlendirme","Size_MB":"Boyut (MB)",
+            "Category_Clean":"Kategori / Category","Rating":"Puan / Rating",
+            "Installs_num":"İndirme / Installs","Is_Free":"Ücretsiz / Free",
+            "Reviews":"Değerlendirme / Reviews","Size_MB":"Boyut / Size (MB)",
         }).sort_values("İndirme", ascending=False).reset_index(drop=True)
 
         opp_show["İndirme"]      = opp_show["İndirme"].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "—")
@@ -825,11 +826,11 @@ with tab3:
         st.warning("Seçilen filtrelere uygun veri bulunamadı.")
         st.markdown("Lütfen sol panelden filtreleri genişletin.")
 
-    st.markdown("### 🏆 Kategori Bazlı Rekabet Analizi")
-    st.caption("Seçilen kategorilerde rekabeti derinlemesine inceleyin")
+    st.markdown("### 🏆 Kategori Bazlı Rekabet Analizi *(Category Competitive Analysis)*")
+    st.caption("Seçilen kategorilerde rekabeti derinlemesine inceleyin · Deep-dive into competition within selected categories")
 
     sel_cat_comp = st.selectbox(
-        "📂 Kategori Seçin",
+        "📂 Kategori Seçin *(Select Category)*",
         options=sorted(filtered_df["Category_Clean"].unique().tolist()),
         index=0,
     )
@@ -877,7 +878,7 @@ with tab3:
             nbins=30, color="Is_Free",
             color_discrete_map={True:"#38bdf8",False:"#f59e0b"},
             labels={"Rating":"Puan","count":"Uygulama Sayısı","Is_Free":"Ücretsiz"},
-            title=f"Puan Dağılımı — {sel_cat_comp}",
+            title=f"Puan Dağılımı · Rating Distribution — {sel_cat_comp}",
             opacity=0.8,
         )
         _fmt_layout(fig_rating_hist, height=250)
@@ -891,7 +892,7 @@ with tab3:
                 nbins=30, color="Is_Free",
                 color_discrete_map={True:"#38bdf8",False:"#f59e0b"},
                 labels={"Installs_num":"İndirme Sayısı","count":"Uygulama Sayısı","Is_Free":"Ücretsiz"},
-                title=f"İndirme Dağılımı — {sel_cat_comp}",
+                title=f"İndirme Dağılımı · Install Distribution — {sel_cat_comp}",
                 log_x=True, opacity=0.8,
             )
             _fmt_layout(fig_inst_hist, height=250)
@@ -909,8 +910,8 @@ with tab3:
             size="Reviews" if "Reviews" in scatter_data.columns else None,
             color_discrete_map={True:"#38bdf8",False:"#f59e0b"},
             hover_name="App",
-            labels={"Rating":"Puan","Installs_num":"İndirme","Is_Free":"Ücretsiz"},
-            title=f"Puan × İndirme İlişkisi — {sel_cat_comp}",
+            labels={"Rating":"Puan / Rating","Installs_num":"İndirme / Installs","Is_Free":"Ücretsiz / Free"},
+            title=f"Puan × İndirme İlişkisi · Rating × Installs — {sel_cat_comp}",
             log_y=True,
             opacity=0.7,
             size_max=20,
@@ -919,10 +920,10 @@ with tab3:
         st.plotly_chart(fig_scatter, width='stretch')
 
     # Tablo
-    st.markdown(f"### 📋 {sel_cat_comp} — Tüm Uygulamalar")
+    st.markdown(f"### 📋 {sel_cat_comp} — Tüm Uygulamalar *(All Apps)*")
     tbl_cols = [c for c in ["App","Rating","Installs_num","Reviews","Is_Free","Size_MB"] if c in cat_data.columns]
     tbl = cat_data[tbl_cols].rename(columns={
-        "Installs_num":"İndirme","Is_Free":"Ücretsiz","Size_MB":"Boyut(MB)","Reviews":"Değerlendirme"
+        "Installs_num":"İndirme / Installs","Is_Free":"Ücretsiz / Free","Size_MB":"Boyut / Size (MB)","Reviews":"Değerlendirme / Reviews"
     }).sort_values("İndirme", ascending=False).reset_index(drop=True)
     if "İndirme" in tbl: tbl["İndirme"] = tbl["İndirme"].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "—")
     if "Ücretsiz" in tbl: tbl["Ücretsiz"] = tbl["Ücretsiz"].map({True:"✅",False:"💎"})
@@ -937,18 +938,18 @@ with tab4:
         st.warning("Seçilen filtrelere uygun veri bulunamadı.")
         st.markdown("Lütfen sol panelden filtreleri genişletin.")
 
-    st.markdown("### 💰 Gelir Modeli & Fiyatlandırma Analizi")
+    st.markdown("### 💰 Gelir Modeli & Fiyatlandırma Analizi *(Revenue Model & Pricing Analysis)*")
 
     free_df = filtered_df[filtered_df["Is_Free"]]
     paid_df = filtered_df[~filtered_df["Is_Free"]]
 
     p1,p2,p3,p4 = st.columns(4)
-    p1.metric("🆓 Ücretsiz Uygulama",   f"{len(free_df):,}")
-    p2.metric("💎 Ücretli Uygulama",    f"{len(paid_df):,}")
+    p1.metric("🆓 Ücretsiz Uygulama\n*(Free Apps)",   f"{len(free_df):,}")
+    p2.metric("💎 Ücretli Uygulama\n*(Paid Apps)",    f"{len(paid_df):,}")
     avg_price = paid_df["Price_num"].mean() if not paid_df.empty else 0
-    p3.metric("💲 Ort. Ücretli Fiyat",  f"${avg_price:.2f}")
+    p3.metric("💲 Ort. Fiyat / Avg Price",  f"${avg_price:.2f}")
     med_price = paid_df["Price_num"].median() if not paid_df.empty else 0
-    p4.metric("💲 Med. Ücretli Fiyat",  f"${med_price:.2f}")
+    p4.metric("💲 Med. Fiyat / Med Price",  f"${med_price:.2f}")
 
     st.markdown("---")
     col_p1, col_p2 = st.columns(2, gap="medium")
@@ -961,7 +962,7 @@ with tab4:
             color="Is_Free",
             color_discrete_map={True:"#38bdf8",False:"#f59e0b"},
             labels={"Is_Free":"Model","Rating":"Puan"},
-            title="Puan Dağılımı: Ücretsiz vs Ücretli",
+            title="Puan Dağılımı · Rating Distribution: Ücretsiz vs Ücretli (Free vs Paid)",
             box=True, points="suspectedoutliers",
         )
         fig_violin.update_layout(xaxis=dict(tickvals=[True,False],ticktext=["Ücretsiz","Ücretli"]),showlegend=False)
@@ -982,8 +983,8 @@ with tab4:
             x="Category_Clean", y="count", color="Model",
             barmode="stack",
             color_discrete_map={"Ücretsiz":"#38bdf8","Ücretli":"#f59e0b"},
-            labels={"Category_Clean":"Kategori","count":"Uygulama Sayısı","Model":"Model"},
-            title="Kategori × Model Dağılımı (Top 12)",
+            labels={"Category_Clean":"Kategori / Category","count":"Uygulama Sayısı","Model":"Model"},
+            title="Kategori × Model Dağılımı · Category × Model Distribution (Top 12)",
         )
         fig_price_cat.update_layout(xaxis_tickangle=-35)
         _fmt_layout(fig_price_cat, height=380)
@@ -992,7 +993,7 @@ with tab4:
     st.markdown("---")
     # Fiyat aralığı analizi
     if not paid_df.empty and paid_df["Price_num"].notna().any():
-        st.markdown("### 💲 Ücretli Uygulama Fiyat Analizi")
+        st.markdown("### 💲 Ücretli Uygulama Fiyat Analizi *(Paid App Pricing Analysis)*")
 
         price_valid = paid_df[paid_df["Price_num"].between(0.01, 200)].copy()
         if not price_valid.empty:
@@ -1018,8 +1019,8 @@ with tab4:
                     price_bucket_agg, x="Fiyat Aralığı", y="count",
                     color="avg_rating",
                     color_continuous_scale=[[0,"#ef4444"],[1,"#34d399"]],
-                    labels={"count":"Uygulama Sayısı","avg_rating":"Ort. Puan"},
-                    title="Fiyat Aralığı Dağılımı",
+                    labels={"count":"Uygulama Sayısı","avg_rating":"Ort. Puan / Avg Rating"},
+                    title="Fiyat Aralığı Dağılımı · Price Range Distribution",
                 )
                 _fmt_layout(fig_price_dist, height=320)
                 st.plotly_chart(fig_price_dist, width='stretch')
@@ -1032,7 +1033,7 @@ with tab4:
                     color="Category_Clean",
                     hover_name="App",
                     labels={"Price_num":"Fiyat ($)","Rating":"Puan"},
-                    title="Fiyat × Puan İlişkisi",
+                    title="Fiyat × Puan İlişkisi · Price × Rating Relationship",
                     log_x=True, opacity=0.7, size_max=15,
                 )
                 _fmt_layout(fig_price_rating, height=320)
@@ -1040,7 +1041,7 @@ with tab4:
 
     st.markdown("---")
     # Strateji önerileri
-    st.markdown("### 🧭 Gelir Stratejisi Önerileri")
+    st.markdown("### 🧭 Gelir Stratejisi Önerileri *(Revenue Strategy Insights)*")
     free_avg   = free_df["Rating"].mean() if not free_df.empty else 0
     paid_avg   = paid_df["Rating"].mean() if not paid_df.empty else 0
     free_inst  = free_df["Installs_num"].median() if not free_df.empty else 0
@@ -1050,22 +1051,22 @@ with tab4:
     with si1:
         winner = "Ücretsiz" if (free_inst or 0) > (paid_inst or 0) else "Ücretli"
         ratio  = max(free_inst or 1, paid_inst or 1) / (min(free_inst or 1, paid_inst or 1) + 1)
-        st.info(f"**📈 Büyüme Taktiği**\n\n{winner} model, medyan indirme açısından **{ratio:.1f}× daha fazla** erişim sağlıyor. Kullanıcı tabanını hızla büyütmek için freemium başlayın.")
+        st.info(f"**📈 Büyüme Taktiği · Growth Tactic**\n\n{winner} model, medyan indirme açısından **{ratio:.1f}× daha fazla** erişim sağlıyor. Kullanıcı tabanını hızla büyütmek için freemium başlayın.")
     with si2:
         better = "Ücretli" if (paid_avg or 0)>(free_avg or 0) else "Ücretsiz"
         diff   = abs((paid_avg or 0)-(free_avg or 0))
-        st.success(f"**⭐ Kalite Sinyali**\n\n{better} uygulamalar ortalamada **{diff:.2f} puan** daha yüksek. Premium segmentte kullanıcı tatminini ön plana çıkarın.")
+        st.success(f"**⭐ Kalite Sinyali · Quality Signal**\n\n{better} uygulamalar ortalamada **{diff:.2f} puan** daha yüksek. Premium segmentte kullanıcı tatminini ön plana çıkarın.")
     with si3:
         top_cat = cat_agg.nlargest(1,"total_installs_M")["Category_Clean"].values[0] if not cat_agg.empty else "—"
-        st.warning(f"**🏆 Lider Kategori**\n\n**{top_cat}** kategorisi en fazla indirmeyi çekiyor. Bu alanda farklılaşan bir niş bulmak yüksek potansiyel taşıyor.")
+        st.warning(f"**🏆 Lider Kategori · Top Category**\n\n**{top_cat}** kategorisi en fazla indirmeyi çekiyor. Bu alanda farklılaşan bir niş bulmak yüksek potansiyel taşıyor.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 5 — KULLANICI SESİ
 # ══════════════════════════════════════════════════════════════════════════════
 with tab5:
-    st.markdown("### 💬 Rakip Uygulama Zayıflık Analizi")
-    st.caption("Negatif yorumları analiz ederek teknik zafiyetleri ve kullanıcı şikayetlerini keşfedin")
+    st.markdown("### 💬 Rakip Uygulama Zayıflık Analizi *(Competitor Weakness Analysis)*")
+    st.caption("Negatif yorumları analiz ederek teknik zafiyetleri ve kullanıcı şikayetlerini keşfedin · Discover technical weaknesses & user complaints via negative reviews")
 
     # Uygulama listesi hazırla
     reviewed_apps = sorted(
@@ -1076,18 +1077,18 @@ with tab5:
     app_pool = reviewed_and_filtered if reviewed_and_filtered else reviewed_apps
 
     if not app_pool:
-        st.warning("Seçilen filtrelerle eşleşen yorumlu uygulama bulunamadı.")
+        st.warning("Seçilen filtrelerle eşleşen yorumlu uygulama bulunamadı. · No reviewed apps match the current filters.")
     else:
         col_sel1, col_sel2 = st.columns([2, 1])
         with col_sel1:
             selected_app = st.selectbox(
-                "🔎 Analiz Edilecek Rakip Uygulama",
+                "🔎 Rakip Uygulama Seç *(Select Competitor App)*",
                 options=app_pool,
                 index=0,
-                help="Sadece negatif yorumu olan uygulamalar listeleniyor",
+                help="Sadece negatif yorumu olan uygulamalar listeleniyor · Only apps with negative reviews are listed",
             )
         with col_sel2:
-            top_n_words = st.slider("Gösterilecek Kelime Sayısı", 10, 50, 25)
+            top_n_words = st.slider("Kelime Sayısı *(Word Count)*, 10, 50, 25")
 
         # Yorumları filtrele
         mask_app = reviews_df["App"] == selected_app
@@ -1106,13 +1107,13 @@ with tab5:
 
             # KPI
             m1, m2, m3, m4, m5 = st.columns(5)
-            m1.metric("🔴 Negatif", len(neg_reviews))
-            m2.metric("🟢 Pozitif", len(pos_reviews))
-            m3.metric("😐 Nötr", len(neu_reviews))
-            m4.metric("📊 Toplam", total_reviews)
+            m1.metric("🔴 Negatif / Negative", len(neg_reviews))
+            m2.metric("🟢 Pozitif / Positive", len(pos_reviews))
+            m3.metric("😐 Nötr / Neutral", len(neu_reviews))
+            m4.metric("📊 Toplam / Total", total_reviews)
             neg_rate = len(neg_reviews) / total_reviews * 100 if total_reviews else 0
             m5.metric(
-                "⚠️ Şikayet Oranı",
+                "⚠️ Şikayet Oranı\n*(Complaint Rate)",
                 f"{neg_rate:.1f}%",
                 delta="yüksek" if neg_rate > 30 else "normal",
                 delta_color="inverse",
@@ -1185,7 +1186,7 @@ with tab5:
                     st.plotly_chart(fig_words, width="stretch")
 
             with col_nlp2:
-                st.markdown("#### 🔑 Kritik Şikayet Kelimeleri")
+                st.markdown("#### 🔑 Kritik Şikayet Kelimeleri *(Top Complaint Keywords)*")
                 if not wf_df.empty:
                     max_freq = wf_df["Frekans"].max()
                     for _, row in wf_df.head(15).iterrows():
@@ -1201,11 +1202,11 @@ with tab5:
                 # Duygu dağılımı donut
                 sent_counts = all_rev["Sentiment"].value_counts().reset_index()
                 sent_counts.columns = ["Duygu", "Sayı"]
-                sent_map = {"Positive": "😊 Pozitif", "Negative": "😤 Negatif", "Neutral": "😐 Nötr"}
+                sent_map = {"Positive": "😊 Pozitif", "Negative": "😤 Negatif", "Neutral": "😐 Nötr / Neutral"}
                 sent_counts["Duygu"] = sent_counts["Duygu"].map(sent_map).fillna(sent_counts["Duygu"])
                 fig_donut = px.pie(
                     sent_counts, names="Duygu", values="Sayı",
-                    title="Duygu Dağılımı",
+                    title="Duygu Dağılımı · Sentiment Distribution",
                     color_discrete_sequence=["#34d399", "#ef4444", "#94a3b8"],
                     hole=0.52,
                 )
@@ -1218,7 +1219,7 @@ with tab5:
 
             # Karşılaştırmalı Kelime Analizi
             st.markdown("---")
-            st.markdown("#### 🔄 Pozitif vs Negatif Kelime Karşılaştırması")
+            st.markdown("#### 🔄 Pozitif vs Negatif Kelime Karşılaştırması *(Positive vs Negative Keyword Comparison)*")
             col_cmp1, col_cmp2 = st.columns(2, gap="medium")
 
             with col_cmp1:
@@ -1235,7 +1236,7 @@ with tab5:
                         text=pwf_df["Frekans"][:15], textposition="outside",
                         textfont=dict(color="#e2e8f0", size=10),
                     ))
-                    _fmt_layout(fig_pos, title="En Sık Pozitif Kelimeler", height=320,
+                    _fmt_layout(fig_pos, title="En Sık Pozitif Kelimeler · Top Positive Keywords", height=320,
                                 yaxis=dict(autorange="reversed"))
                     st.plotly_chart(fig_pos, width="stretch")
 
@@ -1248,7 +1249,7 @@ with tab5:
                         fig_pol = px.histogram(
                             pol_data, x="Sentiment_Polarity",
                             color="Sentiment", nbins=40, opacity=0.8,
-                            title="Duygu Polarite Dağılımı",
+                            title="Duygu Polarite Dağılımı · Sentiment Polarity Distribution",
                             labels={"Sentiment_Polarity": "Polarite", "count": "Yorum Sayısı", "Sentiment": "Duygu"},
                             color_discrete_map={"Positive": "#34d399", "Negative": "#ef4444", "Neutral": "#94a3b8"},
                         )
@@ -1259,7 +1260,7 @@ with tab5:
 
             # Örnek negatif yorumlar
             st.markdown("---")
-            st.markdown("#### 📝 Örnek Negatif Yorumlar")
+            st.markdown("#### 📝 Örnek Negatif Yorumlar *(Sample Negative Reviews)*")
             for i, rev in enumerate(neg_reviews[:8], 1):
                 safe_rev = str(rev)[:400]
                 st.markdown(f"""
