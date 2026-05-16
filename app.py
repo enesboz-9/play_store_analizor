@@ -645,7 +645,7 @@ with tab1:
         "free_pct_label":"Ücretsiz Oran / Free Rate",
         "competition_score":"Rekabet Skoru / Competition Score",
     }
-    display_cat = cat_agg[[c for c in show_cols]].rename(columns=show_cols).sort_values("Toplam İndirme (M)", ascending=False)
+    display_cat = cat_agg[[c for c in show_cols]].rename(columns=show_cols).sort_values("Toplam İndirme / Installs (M)", ascending=False)
     st.dataframe(display_cat, width='stretch', height=420, hide_index=True)
 
 
@@ -838,11 +838,13 @@ with tab2:
             "Category_Clean":"Kategori / Category","Rating":"Puan / Rating",
             "Installs_num":"İndirme / Installs","Is_Free":"Ücretsiz / Free",
             "Reviews":"Değerlendirme / Reviews","Size_MB":"Boyut / Size (MB)",
-        }).sort_values("İndirme", ascending=False).reset_index(drop=True)
+        }).sort_values("İndirme / Installs", ascending=False).reset_index(drop=True)
 
-        opp_show["İndirme"]      = opp_show["İndirme"].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "—")
-        opp_show["Değerlendirme"]= opp_show["Değerlendirme"].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "—") if "Değerlendirme" in opp_show.columns else "—"
-        opp_show["Ücretsiz"]     = opp_show["Ücretsiz"].map({True:"✅","False":"💎"}) if "Ücretsiz" in opp_show.columns else "—"
+        opp_show["İndirme / Installs"] = opp_show["İndirme / Installs"].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "—")
+        if "Değerlendirme / Reviews" in opp_show.columns:
+            opp_show["Değerlendirme / Reviews"] = opp_show["Değerlendirme / Reviews"].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "—")
+        if "Ücretsiz / Free" in opp_show.columns:
+            opp_show["Ücretsiz / Free"] = opp_show["Ücretsiz / Free"].map({True:"✅", False:"💎"})
 
         st.dataframe(opp_show, width='stretch', height=400, hide_index=True)
 
@@ -953,9 +955,9 @@ with tab3:
     tbl_cols = [c for c in ["App","Rating","Installs_num","Reviews","Is_Free","Size_MB"] if c in cat_data.columns]
     tbl = cat_data[tbl_cols].rename(columns={
         "Installs_num":"İndirme / Installs","Is_Free":"Ücretsiz / Free","Size_MB":"Boyut / Size (MB)","Reviews":"Değerlendirme / Reviews"
-    }).sort_values("İndirme", ascending=False).reset_index(drop=True)
-    if "İndirme" in tbl: tbl["İndirme"] = tbl["İndirme"].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "—")
-    if "Ücretsiz" in tbl: tbl["Ücretsiz"] = tbl["Ücretsiz"].map({True:"✅",False:"💎"})
+    }).sort_values("İndirme / Installs", ascending=False).reset_index(drop=True)
+    if "İndirme / Installs" in tbl: tbl["İndirme / Installs"] = tbl["İndirme / Installs"].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "—")
+    if "Ücretsiz / Free" in tbl: tbl["Ücretsiz / Free"] = tbl["Ücretsiz / Free"].map({True:"✅",False:"💎"})
     st.dataframe(tbl, width='stretch', height=380, hide_index=True)
 
 
