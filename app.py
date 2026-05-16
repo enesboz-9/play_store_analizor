@@ -287,6 +287,41 @@ def compute_heat(df_hash, df: pd.DataFrame, top_cats: list) -> pd.DataFrame:
         .reindex(columns=rating_bins).fillna(0)
     )
 
+@st.cache_data(show_spinner=False)
+def compute_cat_opp(df_hash_val: int, df: pd.DataFrame, opp_threshold_inst: float) -> pd.DataFrame:
+    """Fırsat radar aggregation — Tab 2 için cache'li hesaplama."""
+    cat_opp = (
+        df.groupby("Category_Clean", as_index=False)
+        .agg(
+            app_count      =("App",          "count"),
+            avg_rating     =("Rating",        "mean"),
+            median_rating  =("Rating",        "median"),
+            total_installs =("Installs_num",  "sum"),
+            high_inst_apps =("Installs_num",  lambda x: (x >= opp_threshold_inst).sum()),
+            total_reviews  =("Reviews",       "sum"),
+        )
+    )
+    cat_opp["avg_rating"]   = cat_opp["avg_rating"].round(2)
+    cat_opp["total_M"]      = (cat_opp["total_installs"] / 1e6).round(1)
+    cat_opp["opp_score"]    = (cat_opp["total_M"] / cat_opp["avg_rating"].clip(lower=0.1)).round(1)
+    cat_opp["market_gap"]   = ((5 - cat_opp["avg_rating"]) * cat_opp["total_M"]).round(1)
+    return cat_opp
+
+@st.cache_data(show_spinner=False)
+def compute_price_cat(df_hash_val: int, df: pd.DataFrame) -> pd.DataFrame:
+    """Fiyat-kategori dağılımı — Tab 4 için cache'li hesaplama."""
+    price_cat = (
+        df.groupby(["Category_Clean", "Is_Free"], as_index=False)
+        .agg(count=("App", "count"), avg_installs=("Installs_num", "mean"))
+    )
+    price_cat["Model"] = price_cat["Is_Free"].map({True: "Ücretsiz", False: "Ücretli"})
+    return price_cat
+
+@st.cache_data(show_spinner=False)
+def get_sample(df_hash_val: int, df: pd.DataFrame, n: int, random_state: int = 42) -> pd.DataFrame:
+    """Tekrar eden sample() çağrılarını cache'le — her etkileşimde yeniden örnekleme yapmaz."""
+    return df.sample(min(n, len(df)), random_state=random_state) if len(df) > n else df.copy()
+
 def df_hash(df: pd.DataFrame) -> int:
     """DataFrame için hızlı hash (cache key olarak kullanılır)."""
     return hash((len(df), tuple(df.columns.tolist()),
@@ -601,8 +636,9 @@ with tab1:
         st.plotly_chart(fig_inst, width='stretch')
 
     with col_d:
+        _box_sample = get_sample(_fhash, filtered_df[filtered_df["Rating"].notna()].reset_index(drop=True), 10000)
         fig_rating_box = px.box(
-            filtered_df[filtered_df["Rating"].notna()].sample(min(10000,len(filtered_df)), random_state=42),
+            _box_sample,
             x="Category_Clean", y="Rating",
             color="Is_Free",
             color_discrete_map={True:"#38bdf8", False:"#f59e0b"},
@@ -659,22 +695,8 @@ with tab2:
 
     opp_threshold_inst = opp_min_installs * 1_000_000
 
-    cat_opp = (
-        filtered_df
-        .groupby("Category_Clean", as_index=False)
-        .agg(
-            app_count      =("App",          "count"),
-            avg_rating     =("Rating",        "mean"),
-            median_rating  =("Rating",        "median"),
-            total_installs =("Installs_num",  "sum"),
-            high_inst_apps =("Installs_num",  lambda x: (x >= opp_threshold_inst).sum()),
-            total_reviews  =("Reviews",       "sum"),
-        )
-    )
-    cat_opp["avg_rating"]   = cat_opp["avg_rating"].round(2)
-    cat_opp["total_M"]      = (cat_opp["total_installs"] / 1e6).round(1)
-    cat_opp["opp_score"]    = (cat_opp["total_M"] / cat_opp["avg_rating"].clip(lower=0.1)).round(1)
-    cat_opp["market_gap"]   = ((5 - cat_opp["avg_rating"]) * cat_opp["total_M"]).round(1)
+    # Cache'li hesaplama — her etkileşimde yeniden çalışmaz
+    cat_opp = compute_cat_opp(_fhash, filtered_df, opp_threshold_inst)
 
     cat_opp_filtered = cat_opp[
         (cat_opp["total_M"] >= opp_min_installs) &
@@ -682,11 +704,13 @@ with tab2:
         (cat_opp["app_count"] >= opp_min_apps)
     ].sort_values("opp_score", ascending=False)
 
-    opp_apps = filtered_df[
+    # opp_apps: ağır .copy() kaldırıldı, sadece mask
+    _opp_mask = (
         (filtered_df["Installs_num"] >= opp_threshold_inst) &
         (filtered_df["Rating"] <= opp_max_rating) &
         filtered_df["Rating"].notna()
-    ].copy()
+    )
+    opp_apps = filtered_df[_opp_mask]
 
     st.markdown("### 🎯 Fırsat Algoritması *(Opportunity Algorithm)*")
     st.markdown(
@@ -932,10 +956,11 @@ with tab3:
     st.markdown("---")
 
     # Scatter: Puan vs İndirme
-    scatter_data = cat_data[cat_data["Rating"].notna() & cat_data["Installs_num"].notna()].copy()
+    scatter_data = cat_data[cat_data["Rating"].notna() & cat_data["Installs_num"].notna()].reset_index(drop=True)
     if not scatter_data.empty:
+        _cat_hash = hash((sel_cat_comp, len(scatter_data)))
         fig_scatter = px.scatter(
-            scatter_data.sample(min(2000, len(scatter_data))),
+            get_sample(_cat_hash, scatter_data, 2000),
             x="Rating", y="Installs_num",
             color="Is_Free",
             size="Reviews" if "Reviews" in scatter_data.columns else None,
@@ -987,8 +1012,9 @@ with tab4:
 
     with col_p1:
         # Ücretsiz vs Ücretli puan violin
+        _violin_df = get_sample(_fhash, filtered_df[filtered_df["Rating"].notna()].reset_index(drop=True), 5000)
         fig_violin = px.violin(
-            filtered_df[filtered_df["Rating"].notna()].sample(min(5000,len(filtered_df)), random_state=42),
+            _violin_df,
             x="Is_Free", y="Rating",
             color="Is_Free",
             color_discrete_map={True:"#38bdf8",False:"#f59e0b"},
@@ -1001,13 +1027,8 @@ with tab4:
         st.plotly_chart(fig_violin, width='stretch')
 
     with col_p2:
-        # Ücretsiz/Ücretli dağılımı kategori bazında
-        price_cat = (
-            filtered_df
-            .groupby(["Category_Clean","Is_Free"], as_index=False)
-            .agg(count=("App","count"), avg_installs=("Installs_num","mean"))
-        )
-        price_cat["Model"] = price_cat["Is_Free"].map({True:"Ücretsiz",False:"Ücretli"})
+        # Ücretsiz/Ücretli dağılımı kategori bazında — cache'li
+        price_cat = compute_price_cat(_fhash, filtered_df)
         top_cats_p = cat_agg.nlargest(12,"app_count")["Category_Clean"].tolist()
         fig_price_cat = px.bar(
             price_cat[price_cat["Category_Clean"].isin(top_cats_p)],
@@ -1057,8 +1078,9 @@ with tab4:
                 st.plotly_chart(fig_price_dist, width='stretch')
 
             with col_pr2:
+                _pv_hash = hash(("price_valid", _fhash, len(price_valid)))
                 fig_price_rating = px.scatter(
-                    price_valid.sample(min(2000,len(price_valid)), random_state=42),
+                    get_sample(_pv_hash, price_valid.reset_index(drop=True), 2000),
                     x="Price_num", y="Rating",
                     size="Installs_num" if price_valid["Installs_num"].notna().any() else None,
                     color="Category_Clean",
